@@ -1,0 +1,26 @@
+@import "tailwindcss";
+
+body {
+  @apply bg-slate-950 text-slate-100 antialiased;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(99, 102, 241, 0.15), transparent),
+    radial-gradient(ellipse 60% 40% at 80% 110%, rgba(16, 185, 129, 0.08), transparent);
+  background-attachment: fixed;
+  min-height: 100vh;
+}
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { @apply bg-slate-700 rounded-full; }
+
+@media print {
+  body { background: white !important; color: #0f172a !important; }
+  .no-print { display: none !important; }
+  .print-card { border: 1px solid #e2e8f0 !important; background: white !important; color: #0f172a !important; }
+}
+
+@keyframes pulse-ring {
+  0% { transform: scale(1); opacity: 0.6; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+.animate-pulse-ring { animation: pulse-ring 1.8s cubic-bezier(0.2, 0.6, 0.4, 1) infinite; }
