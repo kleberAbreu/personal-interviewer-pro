@@ -49,7 +49,7 @@ Abra o app, clique em **⚙ Configurações → Chaves de API** e cole as chaves
 | Anthropic  | Analista de alta qualidade (Claude Opus/Fable)   | console.anthropic.com            |
 | OpenRouter | Chave única para Claude/GPT/Gemini/DeepSeek      | openrouter.ai/keys               |
 
-O padrão de fábrica usa só Gemini (funciona com uma chave). As sugestões de upgrade por função ficam em **Configurações → Modelos**.
+O padrão de fábrica prioriza **qualidade máxima** por função: Claude Opus 4.8 (Pesquisador e Planejador), Claude Fable 5 (Analista) e Gemini Live (voz) — ou seja, requer as chaves **Anthropic + Gemini**. Alternativas mais econômicas (ou tudo-Gemini com uma chave só) estão a um clique em **Configurações → Modelos**.
 
 ## Estrutura
 

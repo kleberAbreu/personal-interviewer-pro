@@ -33,6 +33,18 @@ export const useSettings = create<SettingsState>()(
       setUsdToBrl: (v) => set({ usdToBrl: v }),
       resetInterviewerTemplate: () => set({ interviewerTemplate: DEFAULT_INTERVIEWER_TEMPLATE }),
     }),
-    { name: 'pip-settings-v1' },
+    {
+      name: 'pip-settings-v1',
+      version: 2,
+      // v2: padrão de fábrica mudou para qualidade máxima por função
+      // (Opus 4.8 / Fable 5). Atualiza os modelos preservando chaves e prompt.
+      migrate: (persisted, version) => {
+        const state = persisted as Partial<SettingsState>
+        if (version < 2) {
+          return { ...state, models: { ...DEFAULT_MODELS } }
+        }
+        return state
+      },
+    },
   ),
 )

@@ -128,26 +128,26 @@ export const ROLE_SUGGESTIONS: Record<AgentRole, RoleSuggestion> = {
   researcher: {
     title: 'Pesquisador (Company Brief)',
     description: 'Analisa a vaga e o CV e monta o perfil da empresa, cultura e estilo de entrevista.',
-    recommended: { provider: 'gemini', model: 'gemini-3-pro-preview' },
+    recommended: { provider: 'anthropic', model: 'claude-opus-4-8' },
     alternatives: [
+      { provider: 'openai', model: 'gpt-5.5' },
+      { provider: 'gemini', model: 'gemini-3-pro-preview' },
       { provider: 'anthropic', model: 'claude-sonnet-4-6' },
-      { provider: 'openai', model: 'gpt-5.5-mini' },
-      { provider: 'openrouter', model: 'deepseek/deepseek-v4-pro' },
     ],
     rationale:
-      'Tarefa de extração + inferência. Gemini 3 Pro tem ótimo custo-benefício; modelos mini/baratos também funcionam bem aqui — não vale pagar flagship.',
+      'Um brief preciso melhora tudo que vem depois: o Opus 4.8 infere cultura e estilo de entrevista com mais nuance e menos invenção. Para economizar, Gemini 3 Pro ou Sonnet 4.6 dão conta.',
   },
   planner: {
     title: 'Planejador (Roteiro da entrevista)',
     description: 'Cria o roteiro adaptativo em blocos cronometrados, com rubrica e guardrails.',
-    recommended: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
+    recommended: { provider: 'anthropic', model: 'claude-opus-4-8' },
     alternatives: [
-      { provider: 'gemini', model: 'gemini-3-pro-preview' },
+      { provider: 'anthropic', model: 'claude-fable-5' },
       { provider: 'openai', model: 'gpt-5.5' },
-      { provider: 'openrouter', model: 'openrouter/auto' },
+      { provider: 'gemini', model: 'gemini-3-pro-preview' },
     ],
     rationale:
-      'Boas perguntas definem a qualidade da simulação. Claude Sonnet 4.6 escreve perguntas comportamentais e técnicas muito bem calibradas por senioridade.',
+      'Boas perguntas definem a qualidade da simulação. Claude Opus 4.8 calibra perguntas comportamentais e técnicas por senioridade com precisão de entrevistador experiente.',
   },
   interviewer: {
     title: 'Entrevistador (voz em tempo real)',
@@ -160,24 +160,25 @@ export const ROLE_SUGGESTIONS: Record<AgentRole, RoleSuggestion> = {
   analyst: {
     title: 'Analista (Relatório de performance)',
     description: 'Audita a transcrição e gera o relatório com notas, evidências e plano de treino.',
-    recommended: { provider: 'anthropic', model: 'claude-opus-4-8' },
+    recommended: { provider: 'anthropic', model: 'claude-fable-5' },
     alternatives: [
-      { provider: 'anthropic', model: 'claude-fable-5' },
+      { provider: 'anthropic', model: 'claude-opus-4-8' },
       { provider: 'openai', model: 'gpt-5.5' },
       { provider: 'gemini', model: 'gemini-3-pro-preview' },
     ],
     rationale:
-      'A função mais sensível à inteligência: exige avaliação crítica sem alucinação e citações literais. Claude Opus 4.8 é o melhor avaliador baseado em evidências; Fable 5 se quiser o teto máximo de qualidade.',
+      'A função mais sensível à inteligência: exige avaliação crítica sem alucinação e citações literais. Claude Fable 5 é o teto de qualidade em análise baseada em evidências; Opus 4.8 entrega quase o mesmo por metade do custo.',
   },
 }
 
-// Padrão de fábrica: tudo Gemini, para funcionar só com a chave Gemini
-// (como o app original). O painel de Modelos sugere upgrades por função.
+// Padrão de fábrica: melhor modelo por função (foco em qualidade, não economia).
+// Requer chaves Anthropic (texto) + Gemini (voz). O contador de custos usa os
+// preços do catálogo acima normalmente. Alternativas econômicas no painel de Modelos.
 export const DEFAULT_MODELS: Record<AgentRole, ModelRef> = {
-  researcher: { provider: 'gemini', model: 'gemini-3-pro-preview' },
-  planner: { provider: 'gemini', model: 'gemini-3-pro-preview' },
+  researcher: { provider: 'anthropic', model: 'claude-opus-4-8' },
+  planner: { provider: 'anthropic', model: 'claude-opus-4-8' },
   interviewer: { provider: 'gemini', model: 'gemini-2.5-flash-native-audio-preview-09-2025' },
-  analyst: { provider: 'gemini', model: 'gemini-3-pro-preview' },
+  analyst: { provider: 'anthropic', model: 'claude-fable-5' },
 }
 
 export const GEMINI_VOICES = ['Kore', 'Puck', 'Charon', 'Fenrir', 'Aoede', 'Leda', 'Orus', 'Zephyr']
