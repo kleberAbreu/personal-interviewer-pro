@@ -35,15 +35,18 @@ export const useSettings = create<SettingsState>()(
     }),
     {
       name: 'pip-settings-v1',
-      version: 2,
-      // v2: padrão de fábrica mudou para qualidade máxima por função
-      // (Opus 4.8 / Fable 5). Atualiza os modelos preservando chaves e prompt.
+      version: 3,
       migrate: (persisted, version) => {
         const state = persisted as Partial<SettingsState>
-        if (version < 2) {
-          return { ...state, models: { ...DEFAULT_MODELS } }
+        let models = state.models ? { ...state.models } : { ...DEFAULT_MODELS }
+        // v2: padrão passou a priorizar qualidade máxima por função (Opus 4.8 / Fable 5).
+        if (version < 2) models = { ...DEFAULT_MODELS }
+        // v3: troca o modelo de voz native-audio (que fechava a conexão) pelo Live GA estável,
+        // preservando as demais escolhas do usuário.
+        if (version < 3 && (!models.interviewer || models.interviewer.model.includes('native-audio') || models.interviewer.model === 'gemini-2.0-flash-exp')) {
+          models = { ...models, interviewer: DEFAULT_MODELS.interviewer }
         }
-        return state
+        return { ...state, models }
       },
     },
   ),

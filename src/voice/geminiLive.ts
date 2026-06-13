@@ -9,9 +9,13 @@ export async function startGeminiLive(
   opts: VoiceSessionOptions,
   cb: VoiceCallbacks,
 ): Promise<VoiceSession> {
-  // v1alpha: necessário para modelos de áudio nativo (native-audio); também
-  // cobre os modelos half-cascade. Sem isto, a sessão "abre" mas não responde.
-  const ai = new GoogleGenAI({ apiKey: opts.apiKey, httpOptions: { apiVersion: 'v1alpha' } })
+  // Modelos native-audio só existem em v1alpha; os half-cascade (live-001 / live-preview)
+  // são servidos em v1beta. Escolher errado faz o servidor fechar a sessão na hora.
+  const isNativeAudio = opts.model.includes('native-audio')
+  const ai = new GoogleGenAI({
+    apiKey: opts.apiKey,
+    httpOptions: { apiVersion: isNativeAudio ? 'v1alpha' : 'v1beta' },
+  })
   const mic = new MicCapture()
   const player = new PcmPlayer(24000)
   let closed = false
@@ -110,8 +114,17 @@ export async function startGeminiLive(
         console.error('[voice] Gemini Live erro:', e)
         if (!closed) cb.onError(e.message || 'Erro na conexão Gemini Live (veja o console do navegador)')
       },
-      onclose: () => {
-        if (!closed) cb.onClose()
+      onclose: (e: CloseEvent) => {
+        console.warn('[voice] Gemini Live fechou · código', e?.code, '· motivo:', e?.reason || '(vazio)')
+        // Para o microfone imediatamente: sem isto, cada frame tenta enviar num
+        // socket morto e gera o loop "WebSocket is already in CLOSING or CLOSED".
+        mic.stop()
+        if (!closed) {
+          if (!endRequested && e?.reason) {
+            cb.onError(`O Gemini encerrou a sessão: ${e.reason}${e.code ? ` (código ${e.code})` : ''}`)
+          }
+          cb.onClose()
+        }
       },
     },
   })

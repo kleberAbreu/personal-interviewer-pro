@@ -28,14 +28,19 @@ export const CATALOG: ModelInfo[] = [
     note: 'Rápido e barato. Suficiente para pesquisa de empresa.',
   },
   {
-    provider: 'gemini', id: 'gemini-2.5-flash-native-audio-preview-09-2025', label: 'Gemini 2.5 Flash Native Audio (Live)',
-    inputPerM: 0.3, outputPerM: 2.5, audioInputPerM: 3.0, audioOutputPerM: 12.0, voice: true,
-    note: 'Voz nativa de alta qualidade via Gemini Live API. Recomendado para a entrevista.',
+    provider: 'gemini', id: 'gemini-2.0-flash-live-001', label: 'Gemini 2.0 Flash Live (GA)',
+    inputPerM: 0.35, outputPerM: 1.5, audioInputPerM: 2.1, audioOutputPerM: 8.5, voice: true,
+    note: 'Modelo Live GA estável (half-cascade). Suporte sólido a transcrição dos dois lados e tools. Recomendado pela confiabilidade.',
   },
   {
-    provider: 'gemini', id: 'gemini-2.0-flash-exp', label: 'Gemini 2.0 Flash Exp (Live)',
-    inputPerM: 0.1, outputPerM: 0.4, audioInputPerM: 2.0, audioOutputPerM: 8.0, voice: true,
-    note: 'Modelo Live experimental usado no app original. Pode ser descontinuado.',
+    provider: 'gemini', id: 'gemini-live-2.5-flash-preview', label: 'Gemini 2.5 Flash Live (preview)',
+    inputPerM: 0.3, outputPerM: 2.5, audioInputPerM: 3.0, audioOutputPerM: 12.0, voice: true,
+    note: 'Half-cascade 2.5: voz melhor que o 2.0, ainda confiável. Em preview.',
+  },
+  {
+    provider: 'gemini', id: 'gemini-2.5-flash-native-audio-preview-09-2025', label: 'Gemini 2.5 Flash Native Audio (preview)',
+    inputPerM: 0.3, outputPerM: 2.5, audioInputPerM: 3.0, audioOutputPerM: 12.0, voice: true,
+    note: 'Voz nativa de altíssima qualidade. Requer acesso à API v1alpha — pode fechar a conexão se sua chave não tiver acesso ao modelo.',
   },
 
   // ── OpenAI ───────────────────────────────────────────────────────
@@ -152,10 +157,14 @@ export const ROLE_SUGGESTIONS: Record<AgentRole, RoleSuggestion> = {
   interviewer: {
     title: 'Entrevistador (voz em tempo real)',
     description: 'Conduz a entrevista por voz (pt-BR ou inglês), com follow-ups dinâmicos.',
-    recommended: { provider: 'gemini', model: 'gemini-2.5-flash-native-audio-preview-09-2025' },
-    alternatives: [{ provider: 'openai', model: 'gpt-realtime' }],
+    recommended: { provider: 'gemini', model: 'gemini-2.0-flash-live-001' },
+    alternatives: [
+      { provider: 'gemini', model: 'gemini-live-2.5-flash-preview' },
+      { provider: 'gemini', model: 'gemini-2.5-flash-native-audio-preview-09-2025' },
+      { provider: 'openai', model: 'gpt-realtime' },
+    ],
     rationale:
-      'Apenas Gemini Live e OpenAI Realtime suportam conversa de voz no navegador. Gemini Live tem sotaque pt-BR natural e custa menos; GPT Realtime tem prosódia excelente em inglês — boa escolha para treinar entrevista em inglês.',
+      'Apenas Gemini Live e OpenAI Realtime suportam conversa de voz no navegador. O Live 2.0 GA é o mais confiável (sotaque pt-BR natural); o 2.5 Live e o Native Audio têm voz superior, mas o Native Audio exige acesso especial à v1alpha. GPT Realtime tem prosódia excelente em inglês.',
   },
   analyst: {
     title: 'Analista (Relatório de performance)',
@@ -177,7 +186,7 @@ export const ROLE_SUGGESTIONS: Record<AgentRole, RoleSuggestion> = {
 export const DEFAULT_MODELS: Record<AgentRole, ModelRef> = {
   researcher: { provider: 'anthropic', model: 'claude-opus-4-8' },
   planner: { provider: 'anthropic', model: 'claude-opus-4-8' },
-  interviewer: { provider: 'gemini', model: 'gemini-2.5-flash-native-audio-preview-09-2025' },
+  interviewer: { provider: 'gemini', model: 'gemini-2.0-flash-live-001' },
   analyst: { provider: 'anthropic', model: 'claude-fable-5' },
 }
 
