@@ -9,13 +9,10 @@ export async function startGeminiLive(
   opts: VoiceSessionOptions,
   cb: VoiceCallbacks,
 ): Promise<VoiceSession> {
-  // Modelos native-audio só existem em v1alpha; os half-cascade (live-001 / live-preview)
-  // são servidos em v1beta. Escolher errado faz o servidor fechar a sessão na hora.
-  const isNativeAudio = opts.model.includes('native-audio')
-  const ai = new GoogleGenAI({
-    apiKey: opts.apiKey,
-    httpOptions: { apiVersion: isNativeAudio ? 'v1alpha' : 'v1beta' },
-  })
+  // v1beta cobre os modelos Live atuais (native audio 12-2025, 3.1 flash live),
+  // incluindo transcrição dos dois lados e function calling. v1alpha só é
+  // necessário para affective dialog / proactive audio, que não usamos.
+  const ai = new GoogleGenAI({ apiKey: opts.apiKey, httpOptions: { apiVersion: 'v1beta' } })
   const mic = new MicCapture()
   const player = new PcmPlayer(24000)
   let closed = false

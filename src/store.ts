@@ -35,16 +35,25 @@ export const useSettings = create<SettingsState>()(
     }),
     {
       name: 'pip-settings-v1',
-      version: 3,
+      version: 4,
       migrate: (persisted, version) => {
         const state = persisted as Partial<SettingsState>
         let models = state.models ? { ...state.models } : { ...DEFAULT_MODELS }
         // v2: padrão passou a priorizar qualidade máxima por função (Opus 4.8 / Fable 5).
         if (version < 2) models = { ...DEFAULT_MODELS }
-        // v3: troca o modelo de voz native-audio (que fechava a conexão) pelo Live GA estável,
-        // preservando as demais escolhas do usuário.
-        if (version < 3 && (!models.interviewer || models.interviewer.model.includes('native-audio') || models.interviewer.model === 'gemini-2.0-flash-exp')) {
-          models = { ...models, interviewer: DEFAULT_MODELS.interviewer }
+        // v4: modelos Live antigos (2.0-flash-live-001, live-2.5-preview, native-audio-09-2025)
+        // foram desligados pelo Google. Texto gemini-3-pro-preview idem (09/03/2026).
+        // Troca pelos IDs atuais preservando as demais escolhas do usuário.
+        if (version < 4) {
+          const deadVoice = ['gemini-2.0-flash-live-001', 'gemini-live-2.5-flash-preview', 'gemini-2.5-flash-native-audio-preview-09-2025', 'gemini-2.0-flash-exp']
+          if (!models.interviewer || deadVoice.includes(models.interviewer.model)) {
+            models = { ...models, interviewer: DEFAULT_MODELS.interviewer }
+          }
+          for (const role of ['researcher', 'planner', 'analyst'] as const) {
+            if (models[role]?.model === 'gemini-3-pro-preview') {
+              models = { ...models, [role]: { provider: 'gemini', model: 'gemini-3.1-pro-preview' } }
+            }
+          }
         }
         return { ...state, models }
       },

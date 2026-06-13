@@ -16,11 +16,14 @@ export interface ModelInfo {
 }
 
 export const CATALOG: ModelInfo[] = [
-  // ── Google Gemini ────────────────────────────────────────────────
+  // ── Google Gemini ──────────────────────────────────────────────
+  // (verificado nas docs oficiais em 13/06/2026; modelos Live antigos
+  //  gemini-2.0-flash-live-001 e gemini-live-2.5-flash-preview foram
+  //  desligados em 09/12/2025; gemini-3-pro-preview em 09/03/2026.)
   {
-    provider: 'gemini', id: 'gemini-3-pro-preview', label: 'Gemini 3 Pro',
+    provider: 'gemini', id: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro',
     inputPerM: 2.0, outputPerM: 12.0,
-    note: 'Raciocínio forte, ótimo custo. Bom para pesquisa e planejamento.',
+    note: 'Raciocínio forte. Substitui o gemini-3-pro-preview (desligado em 09/03/2026).',
   },
   {
     provider: 'gemini', id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash',
@@ -28,36 +31,31 @@ export const CATALOG: ModelInfo[] = [
     note: 'Rápido e barato. Suficiente para pesquisa de empresa.',
   },
   {
-    provider: 'gemini', id: 'gemini-2.0-flash-live-001', label: 'Gemini 2.0 Flash Live (GA)',
-    inputPerM: 0.35, outputPerM: 1.5, audioInputPerM: 2.1, audioOutputPerM: 8.5, voice: true,
-    note: 'Modelo Live GA estável (half-cascade). Suporte sólido a transcrição dos dois lados e tools. Recomendado pela confiabilidade.',
+    provider: 'gemini', id: 'gemini-2.5-flash-native-audio-preview-12-2025', label: 'Gemini 2.5 Flash Native Audio (Live)',
+    inputPerM: 0.5, outputPerM: 2.0, audioInputPerM: 3.0, audioOutputPerM: 12.0, voice: true,
+    note: 'Voz nativa de altíssima qualidade via Live API. Atual (12-2025), roda em v1beta, transcrição dos dois lados + tools. Recomendado.',
   },
   {
-    provider: 'gemini', id: 'gemini-live-2.5-flash-preview', label: 'Gemini 2.5 Flash Live (preview)',
-    inputPerM: 0.3, outputPerM: 2.5, audioInputPerM: 3.0, audioOutputPerM: 12.0, voice: true,
-    note: 'Half-cascade 2.5: voz melhor que o 2.0, ainda confiável. Em preview.',
-  },
-  {
-    provider: 'gemini', id: 'gemini-2.5-flash-native-audio-preview-09-2025', label: 'Gemini 2.5 Flash Native Audio (preview)',
-    inputPerM: 0.3, outputPerM: 2.5, audioInputPerM: 3.0, audioOutputPerM: 12.0, voice: true,
-    note: 'Voz nativa de altíssima qualidade. Requer acesso à API v1alpha — pode fechar a conexão se sua chave não tiver acesso ao modelo.',
+    provider: 'gemini', id: 'gemini-3.1-flash-live-preview', label: 'Gemini 3.1 Flash Live (preview)',
+    inputPerM: 0.75, outputPerM: 4.5, audioInputPerM: 3.0, audioOutputPerM: 12.0, voice: true,
+    note: 'Modelo Live mais novo. Function calling sequencial (blocking). Em preview.',
   },
 
   // ── OpenAI ───────────────────────────────────────────────────────
   {
     provider: 'openai', id: 'gpt-5.5', label: 'GPT-5.5',
-    inputPerM: 1.25, outputPerM: 10.0,
+    inputPerM: 5.0, outputPerM: 30.0,
     note: 'Flagship OpenAI. Excelente para análise e relatório.',
   },
   {
-    provider: 'openai', id: 'gpt-5.5-mini', label: 'GPT-5.5 Mini',
-    inputPerM: 0.25, outputPerM: 2.0,
-    note: 'Custo baixo para tarefas mais simples (pesquisa).',
+    provider: 'openai', id: 'gpt-5.4-mini', label: 'GPT-5.4 Mini',
+    inputPerM: 0.75, outputPerM: 4.5,
+    note: 'Variante mini mais nova (não existe gpt-5.5-mini). Custo baixo para pesquisa.',
   },
   {
     provider: 'openai', id: 'gpt-realtime', label: 'GPT Realtime (voz)',
-    inputPerM: 4.0, outputPerM: 16.0, audioInputPerM: 32.0, audioOutputPerM: 64.0, voice: true,
-    note: 'Voz em tempo real via OpenAI Realtime API. Mais caro que o Gemini Live, prosódia excelente em inglês.',
+    inputPerM: 4.0, outputPerM: 24.0, audioInputPerM: 32.0, audioOutputPerM: 64.0, voice: true,
+    note: 'Voz em tempo real via OpenAI Realtime API (GA). Prosódia excelente em inglês. Auth no navegador via subprotocolo (uso pessoal).',
   },
 
   // ── Anthropic (preços oficiais) ──────────────────────────────────
@@ -99,7 +97,7 @@ export const CATALOG: ModelInfo[] = [
     note: 'Acesso ao GPT com uma única chave OpenRouter.',
   },
   {
-    provider: 'openrouter', id: 'google/gemini-3-pro-preview', label: 'Gemini 3 Pro (via OpenRouter)',
+    provider: 'openrouter', id: 'google/gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro (via OpenRouter)',
     inputPerM: 2.0, outputPerM: 12.0,
     note: 'Acesso ao Gemini com uma única chave OpenRouter.',
   },
@@ -136,11 +134,11 @@ export const ROLE_SUGGESTIONS: Record<AgentRole, RoleSuggestion> = {
     recommended: { provider: 'anthropic', model: 'claude-opus-4-8' },
     alternatives: [
       { provider: 'openai', model: 'gpt-5.5' },
-      { provider: 'gemini', model: 'gemini-3-pro-preview' },
+      { provider: 'gemini', model: 'gemini-3.1-pro-preview' },
       { provider: 'anthropic', model: 'claude-sonnet-4-6' },
     ],
     rationale:
-      'Um brief preciso melhora tudo que vem depois: o Opus 4.8 infere cultura e estilo de entrevista com mais nuance e menos invenção. Para economizar, Gemini 3 Pro ou Sonnet 4.6 dão conta.',
+      'Um brief preciso melhora tudo que vem depois: o Opus 4.8 infere cultura e estilo de entrevista com mais nuance e menos invenção. Para economizar, Gemini 3.1 Pro ou Sonnet 4.6 dão conta.',
   },
   planner: {
     title: 'Planejador (Roteiro da entrevista)',
@@ -149,7 +147,7 @@ export const ROLE_SUGGESTIONS: Record<AgentRole, RoleSuggestion> = {
     alternatives: [
       { provider: 'anthropic', model: 'claude-fable-5' },
       { provider: 'openai', model: 'gpt-5.5' },
-      { provider: 'gemini', model: 'gemini-3-pro-preview' },
+      { provider: 'gemini', model: 'gemini-3.1-pro-preview' },
     ],
     rationale:
       'Boas perguntas definem a qualidade da simulação. Claude Opus 4.8 calibra perguntas comportamentais e técnicas por senioridade com precisão de entrevistador experiente.',
@@ -157,14 +155,13 @@ export const ROLE_SUGGESTIONS: Record<AgentRole, RoleSuggestion> = {
   interviewer: {
     title: 'Entrevistador (voz em tempo real)',
     description: 'Conduz a entrevista por voz (pt-BR ou inglês), com follow-ups dinâmicos.',
-    recommended: { provider: 'gemini', model: 'gemini-2.0-flash-live-001' },
+    recommended: { provider: 'gemini', model: 'gemini-2.5-flash-native-audio-preview-12-2025' },
     alternatives: [
-      { provider: 'gemini', model: 'gemini-live-2.5-flash-preview' },
-      { provider: 'gemini', model: 'gemini-2.5-flash-native-audio-preview-09-2025' },
+      { provider: 'gemini', model: 'gemini-3.1-flash-live-preview' },
       { provider: 'openai', model: 'gpt-realtime' },
     ],
     rationale:
-      'Apenas Gemini Live e OpenAI Realtime suportam conversa de voz no navegador. O Live 2.0 GA é o mais confiável (sotaque pt-BR natural); o 2.5 Live e o Native Audio têm voz superior, mas o Native Audio exige acesso especial à v1alpha. GPT Realtime tem prosódia excelente em inglês.',
+      'Apenas Gemini Live e OpenAI Realtime suportam conversa de voz no navegador. O Native Audio 12-2025 é o atual e dá a voz pt-BR mais natural (roda em v1beta, sem acesso especial). O 3.1 Flash Live é o mais novo. GPT Realtime tem prosódia excelente em inglês.',
   },
   analyst: {
     title: 'Analista (Relatório de performance)',
@@ -173,7 +170,7 @@ export const ROLE_SUGGESTIONS: Record<AgentRole, RoleSuggestion> = {
     alternatives: [
       { provider: 'anthropic', model: 'claude-opus-4-8' },
       { provider: 'openai', model: 'gpt-5.5' },
-      { provider: 'gemini', model: 'gemini-3-pro-preview' },
+      { provider: 'gemini', model: 'gemini-3.1-pro-preview' },
     ],
     rationale:
       'A função mais sensível à inteligência: exige avaliação crítica sem alucinação e citações literais. Claude Fable 5 é o teto de qualidade em análise baseada em evidências; Opus 4.8 entrega quase o mesmo por metade do custo.',
@@ -186,7 +183,7 @@ export const ROLE_SUGGESTIONS: Record<AgentRole, RoleSuggestion> = {
 export const DEFAULT_MODELS: Record<AgentRole, ModelRef> = {
   researcher: { provider: 'anthropic', model: 'claude-opus-4-8' },
   planner: { provider: 'anthropic', model: 'claude-opus-4-8' },
-  interviewer: { provider: 'gemini', model: 'gemini-2.0-flash-live-001' },
+  interviewer: { provider: 'gemini', model: 'gemini-2.5-flash-native-audio-preview-12-2025' },
   analyst: { provider: 'anthropic', model: 'claude-fable-5' },
 }
 

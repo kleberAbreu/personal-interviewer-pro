@@ -28,16 +28,26 @@ export async function startOpenAiRealtime(
 
   ws.onopen = () => {
     if (closed) return
+    // Estrutura GA da Realtime API (modelo gpt-realtime): config de áudio
+    // aninhada em audio.input/output e output_modalities (não mais os campos
+    // planos modalities/voice/input_audio_format do antigo gpt-4o-realtime-preview).
     send({
       type: 'session.update',
       session: {
-        modalities: ['audio', 'text'],
+        type: 'realtime',
         instructions: opts.systemInstruction,
-        voice: opts.voiceName,
-        input_audio_format: 'pcm16',
-        output_audio_format: 'pcm16',
-        input_audio_transcription: { model: 'whisper-1' },
-        turn_detection: { type: 'server_vad', silence_duration_ms: 900 },
+        output_modalities: ['audio'],
+        audio: {
+          input: {
+            format: { type: 'audio/pcm', rate: 24000 },
+            turn_detection: { type: 'semantic_vad' },
+            transcription: { model: 'whisper-1' },
+          },
+          output: {
+            format: { type: 'audio/pcm', rate: 24000 },
+            voice: opts.voiceName,
+          },
+        },
         tools: [
           {
             type: 'function',
