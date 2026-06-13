@@ -1,5 +1,22 @@
 // Utilitários de áudio: captura do microfone em PCM16 e player com fila.
 
+/** Reamostragem linear simples de Float32 PCM (mono). */
+export function downsample(input: Float32Array, fromRate: number, toRate: number): Float32Array {
+  if (fromRate === toRate) return new Float32Array(input)
+  const ratio = fromRate / toRate
+  const outLen = Math.round(input.length / ratio)
+  const out = new Float32Array(outLen)
+  for (let i = 0; i < outLen; i++) {
+    const pos = i * ratio
+    const idx = Math.floor(pos)
+    const frac = pos - idx
+    const a = input[idx] ?? 0
+    const b = input[idx + 1] ?? a
+    out[i] = a + (b - a) * frac
+  }
+  return out
+}
+
 export function floatTo16BitPcmBytes(data: Float32Array): Uint8Array {
   const int16 = new Int16Array(data.length)
   for (let i = 0; i < data.length; i++) {
@@ -32,21 +49,33 @@ export class MicCapture {
   private source: MediaStreamAudioSourceNode | null = null
   muted = false
 
-  /** Inicia a captura; onChunk recebe Float32Array no sampleRate pedido. */
-  async start(sampleRate: number, onChunk: (chunk: Float32Array, durationSec: number) => void): Promise<void> {
-    this.ctx = new AudioContext({ sampleRate })
+  /**
+   * Inicia a captura. onChunk recebe Float32Array reamostrado para `targetRate`
+   * e a duração real (wall-clock) do trecho. Usa a taxa nativa do dispositivo e
+   * reamostra por software — mais confiável que forçar a taxa no AudioContext.
+   */
+  async start(targetRate: number, onChunk: (chunk: Float32Array, durationSec: number) => void): Promise<void> {
+    this.ctx = new AudioContext()
+    // Autoplay policy: o contexto pode nascer suspenso. Sem isto, onaudioprocess
+    // nunca dispara e nenhum áudio é enviado (sintoma: "falo e nada acontece").
+    if (this.ctx.state === 'suspended') await this.ctx.resume()
+
     this.stream = await navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: true, noiseSuppression: true },
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
     })
+    const inRate = this.ctx.sampleRate
     this.source = this.ctx.createMediaStreamSource(this.stream)
     this.processor = this.ctx.createScriptProcessor(4096, 1, 1)
     this.processor.onaudioprocess = (e) => {
       if (this.muted) return
       const input = e.inputBuffer.getChannelData(0)
-      onChunk(new Float32Array(input), input.length / sampleRate)
+      const durationSec = input.length / inRate
+      const chunk = inRate === targetRate ? new Float32Array(input) : downsample(input, inRate, targetRate)
+      onChunk(chunk, durationSec)
     }
     this.source.connect(this.processor)
     this.processor.connect(this.ctx.destination)
+    console.info(`[voice] mic ativo · taxa nativa ${inRate}Hz → ${targetRate}Hz · ctx=${this.ctx.state}`)
   }
 
   stop(): void {
@@ -70,11 +99,15 @@ export class PcmPlayer {
 
   constructor(sampleRate: number = 24000) {
     this.sampleRate = sampleRate
-    this.ctx = new AudioContext({ sampleRate })
+    // Contexto na taxa nativa; os buffers declaram 24kHz e a Web Audio API
+    // reamostra na reprodução. Forçar a taxa do contexto falha em alguns aparelhos.
+    this.ctx = new AudioContext()
   }
 
   /** Enfileira PCM16 mono (bytes) para reprodução contínua. */
   playPcm16(bytes: Uint8Array): void {
+    // Autoplay policy: garante que o contexto esteja rodando antes de tocar.
+    if (this.ctx.state === 'suspended') void this.ctx.resume()
     const aligned = bytes.byteOffset % 2 === 0 && bytes.byteLength % 2 === 0
       ? bytes
       : bytes.slice()

@@ -9,7 +9,9 @@ export async function startGeminiLive(
   opts: VoiceSessionOptions,
   cb: VoiceCallbacks,
 ): Promise<VoiceSession> {
-  const ai = new GoogleGenAI({ apiKey: opts.apiKey })
+  // v1alpha: necessário para modelos de áudio nativo (native-audio); também
+  // cobre os modelos half-cascade. Sem isto, a sessão "abre" mas não responde.
+  const ai = new GoogleGenAI({ apiKey: opts.apiKey, httpOptions: { apiVersion: 'v1alpha' } })
   const mic = new MicCapture()
   const player = new PcmPlayer(24000)
   let closed = false
@@ -53,7 +55,19 @@ export async function startGeminiLive(
     callbacks: {
       onopen: () => {
         if (closed) return
+        console.info('[voice] Gemini Live conectado:', opts.model)
         cb.onOpen()
+        // Kickoff: pede ao entrevistador que comece (Gemini não fala sem input).
+        sessionPromise
+          .then((s) => s.sendClientContent({
+            turns: [{
+              role: 'user',
+              parts: [{ text: opts.language === 'en-US' ? '(The candidate has joined. Greet them and start the interview.)' : '(O candidato entrou. Cumprimente-o e inicie a entrevista.)' }],
+            }],
+            turnComplete: true,
+          }))
+          .catch((e: unknown) => console.warn('[voice] kickoff falhou:', e))
+
         void mic.start(16000, (chunk, durationSec) => {
           cb.onAudioSeconds(durationSec, 0)
           let sum = 0
@@ -93,7 +107,8 @@ export async function startGeminiLive(
         }
       },
       onerror: (e: ErrorEvent) => {
-        if (!closed) cb.onError(e.message || 'Erro na conexão Gemini Live')
+        console.error('[voice] Gemini Live erro:', e)
+        if (!closed) cb.onError(e.message || 'Erro na conexão Gemini Live (veja o console do navegador)')
       },
       onclose: () => {
         if (!closed) cb.onClose()
