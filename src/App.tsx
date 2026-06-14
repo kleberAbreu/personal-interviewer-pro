@@ -31,6 +31,7 @@ export default function App() {
   const [plan, setPlan] = useState<InterviewPlan | null>(null)
   const [report, setReport] = useState<ReportData | null>(null)
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([])
+  const [analysisError, setAnalysisError] = useState<string | null>(null)
   const [loadingText, setLoadingText] = useState('')
   const [errorText, setErrorText] = useState<string | null>(null)
   const [totalCostUsd, setTotalCostUsd] = useState(0)
@@ -61,7 +62,13 @@ export default function App() {
   const handleInterviewFinish = async (finalTranscript: TranscriptEntry[], voiceCostUsd: number) => {
     setTranscript(finalTranscript)
     setTotalCostUsd((c) => c + voiceCostUsd)
+    await analyze(finalTranscript)
+  }
+
+  // Geração do relatório isolada para poder ser re-tentada sem perder a entrevista.
+  const analyze = async (finalTranscript: TranscriptEntry[]) => {
     setStep('analyzing')
+    setAnalysisError(null)
     setLoadingText('Agente Analista auditando a transcrição e gerando o relatório…')
     try {
       if (!config || !plan) throw new Error('Estado da sessão perdido.')
@@ -73,9 +80,16 @@ export default function App() {
       setTotalCostUsd((c) => c + analysis.costUsd)
       setStep('report')
     } catch (e) {
-      setErrorText(e instanceof Error ? e.message : 'Erro ao gerar o relatório.')
-      setStep('setup')
+      // NÃO descarta a entrevista: mantém a transcrição e permite re-tentar.
+      setAnalysisError(e instanceof Error ? e.message : 'Erro ao gerar o relatório.')
     }
+  }
+
+  const copyTranscript = () => {
+    const text = transcript
+      .map((t) => `${t.role === 'candidate' ? 'Você' : 'Entrevistador'}: ${t.text}`)
+      .join('\n')
+    void navigator.clipboard?.writeText(text)
   }
 
   const handleRestart = () => {
@@ -86,6 +100,7 @@ export default function App() {
     setTranscript([])
     setTotalCostUsd(0)
     setErrorText(null)
+    setAnalysisError(null)
   }
 
   return (
@@ -123,13 +138,47 @@ export default function App() {
 
         {step === 'setup' && <SetupForm onStart={(c) => void handleStart(c)} />}
 
-        {(step === 'preparing' || step === 'analyzing') && (
+        {step === 'preparing' && (
           <div className="flex flex-col items-center justify-center min-h-[55vh] gap-5">
             <Spinner className="w-14 h-14 text-indigo-500" />
             <h2 className="text-lg font-semibold text-slate-200 animate-pulse">{loadingText}</h2>
             <p className="text-xs text-slate-500">
               Custo acumulado: {formatBrl(totalCostUsd, settings.usdToBrl)} (est.)
             </p>
+          </div>
+        )}
+
+        {step === 'analyzing' && !analysisError && (
+          <div className="flex flex-col items-center justify-center min-h-[55vh] gap-5">
+            <Spinner className="w-14 h-14 text-indigo-500" />
+            <h2 className="text-lg font-semibold text-slate-200 animate-pulse">{loadingText}</h2>
+            <p className="text-xs text-slate-500">
+              Custo acumulado: {formatBrl(totalCostUsd, settings.usdToBrl)} (est.)
+            </p>
+          </div>
+        )}
+
+        {step === 'analyzing' && analysisError && (
+          <div className="max-w-xl mx-auto py-12 text-center space-y-6">
+            <div className="bg-amber-500/15 border border-amber-500/30 w-16 h-16 rounded-full flex items-center justify-center mx-auto">
+              <BrainCircuit className="w-8 h-8 text-amber-400" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold">Falha ao gerar o relatório</h2>
+              <p className="text-slate-400 mt-2 text-sm">
+                Sua entrevista <strong className="text-slate-200">não foi perdida</strong> — a transcrição
+                ({transcript.length} turnos) está salva. Você pode tentar gerar o relatório de novo ou copiar
+                a transcrição para guardar.
+              </p>
+            </div>
+            <Card className="p-4 border-amber-500/30 bg-amber-950/20 text-left text-xs text-amber-200/90 break-words">
+              {analysisError}
+            </Card>
+            <div className="flex flex-wrap gap-3 justify-center">
+              <Button onClick={() => void analyze(transcript)}>Tentar gerar relatório novamente</Button>
+              <Button variant="secondary" onClick={copyTranscript}>Copiar transcrição</Button>
+              <Button variant="ghost" onClick={handleRestart}>Voltar ao início</Button>
+            </div>
           </div>
         )}
 

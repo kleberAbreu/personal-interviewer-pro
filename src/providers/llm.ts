@@ -91,13 +91,17 @@ async function chatOpenAiCompatible(
 async function chatAnthropic(p: ChatParams): Promise<ChatResult> {
   const key = requireKey(p.keys.anthropic, 'Anthropic')
   const client = new Anthropic({ apiKey: key, dangerouslyAllowBrowser: true })
+  // STREAMING obrigatório: o SDK recusa requisições não-streaming que estima
+  // passarem de ~10 min (acontece com max_tokens alto + transcrições longas de
+  // entrevistas de 30+ min). .finalMessage() devolve a Message completa.
   // Fable 5 / Opus 4.8 não aceitam temperature/top_p — não enviar.
-  const response = await client.messages.create({
+  const stream = client.messages.stream({
     model: p.ref.model,
     max_tokens: p.maxTokens ?? 16000,
     system: p.system,
     messages: [{ role: 'user', content: p.user }],
   })
+  const response = await stream.finalMessage()
   const text = response.content
     .filter((b): b is Anthropic.TextBlock => b.type === 'text')
     .map((b) => b.text)
