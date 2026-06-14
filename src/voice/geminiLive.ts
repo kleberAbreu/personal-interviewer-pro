@@ -202,6 +202,13 @@ export async function startGeminiLive(
 
   return {
     setMuted: (muted) => { mic.muted = muted },
+    setPaused: (paused) => {
+      // Não envia áudio do mic e suspende a reprodução; a sessão WebSocket segue
+      // viva (contexto preservado). Se cair na pausa, a retomada por handle reconecta.
+      mic.muted = paused
+      if (paused) player.pause()
+      else player.resume()
+    },
     stop: () => {
       closed = true
       flushTranscripts()

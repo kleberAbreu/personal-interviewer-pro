@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { AlertCircle, Clock, DollarSign, Mic, MicOff, PhoneOff, RefreshCw } from 'lucide-react'
+import { AlertCircle, Clock, DollarSign, Mic, MicOff, NotebookPen, Pause, PhoneOff, Play, RefreshCw } from 'lucide-react'
 import { buildInterviewerPrompt } from '../config/prompts'
 import { voiceCostUsd, formatBrl } from '../services/cost'
 import { useSettings } from '../store'
@@ -19,6 +19,8 @@ export default function LiveInterview({ config, brief, plan, previousCostUsd, on
   const settings = useSettings()
   const [connected, setConnected] = useState(false)
   const [muted, setMuted] = useState(false)
+  const [paused, setPaused] = useState(false)
+  const [notes, setNotes] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [level, setLevel] = useState(0)
   const [timeLeft, setTimeLeft] = useState(config.duration * 60)
@@ -115,12 +117,12 @@ export default function LiveInterview({ config, brief, plan, previousCostUsd, on
     }
   }, [connect])
 
-  // Timer (permite até 5 min de overtime)
+  // Timer (permite até 5 min de overtime) — congela durante a pausa
   useEffect(() => {
-    if (!connected || timeLeft <= -300) return
+    if (!connected || paused || timeLeft <= -300) return
     const id = setInterval(() => setTimeLeft((t) => t - 1), 1000)
     return () => clearInterval(id)
-  }, [connected, timeLeft])
+  }, [connected, paused, timeLeft])
 
   useEffect(() => {
     logRef.current?.scrollTo({ top: logRef.current.scrollHeight, behavior: 'smooth' })
@@ -130,6 +132,13 @@ export default function LiveInterview({ config, brief, plan, previousCostUsd, on
     const next = !muted
     setMuted(next)
     sessionRef.current?.setMuted(next)
+  }
+
+  const togglePause = () => {
+    const next = !paused
+    setPaused(next)
+    // A sessão WebSocket continua viva; só paramos de enviar/tocar áudio.
+    sessionRef.current?.setPaused(next)
   }
 
   const formatTime = (s: number) => {
@@ -165,32 +174,38 @@ export default function LiveInterview({ config, brief, plan, previousCostUsd, on
 
       {/* Orbe do entrevistador */}
       <div className="relative my-4">
-        {connected && <div className="absolute inset-0 rounded-full bg-indigo-500/30 animate-pulse-ring" />}
+        {connected && !paused && <div className="absolute inset-0 rounded-full bg-indigo-500/30 animate-pulse-ring" />}
         <div
           className={`w-44 h-44 rounded-full flex items-center justify-center transition-transform duration-100 ${
-            connected
-              ? 'bg-gradient-to-br from-indigo-500 to-violet-700 shadow-2xl shadow-indigo-900/60'
-              : 'bg-slate-800'
+            paused
+              ? 'bg-gradient-to-br from-amber-500 to-amber-700 shadow-2xl shadow-amber-900/50'
+              : connected
+                ? 'bg-gradient-to-br from-indigo-500 to-violet-700 shadow-2xl shadow-indigo-900/60'
+                : 'bg-slate-800'
           }`}
-          style={{ transform: `scale(${1 + Math.min(level * 2.5, 0.35)})` }}
+          style={{ transform: `scale(${1 + (paused ? 0 : Math.min(level * 2.5, 0.35))})` }}
         >
-          <Mic className="w-14 h-14 text-white/90" />
+          {paused ? <Pause className="w-14 h-14 text-white/90" /> : <Mic className="w-14 h-14 text-white/90" />}
         </div>
         {connected && (
           <span className="absolute top-1 right-1 flex h-4 w-4">
-            <span className="animate-ping absolute h-full w-full rounded-full bg-emerald-400 opacity-70" />
-            <span className="relative rounded-full h-4 w-4 bg-emerald-500" />
+            {!paused && <span className="animate-ping absolute h-full w-full rounded-full bg-emerald-400 opacity-70" />}
+            <span className={`relative rounded-full h-4 w-4 ${paused ? 'bg-amber-400' : 'bg-emerald-500'}`} />
           </span>
         )}
       </div>
 
       <div className="text-center">
-        <h2 className="text-2xl font-bold">{connected ? 'Entrevista em andamento' : 'Conectando…'}</h2>
+        <h2 className="text-2xl font-bold">
+          {!connected ? 'Conectando…' : paused ? 'Entrevista pausada' : 'Entrevista em andamento'}
+        </h2>
         <p className="text-slate-400 mt-1 text-sm max-w-md">
-          {config.interviewLanguage === 'en-US'
-            ? 'The interviewer is listening. Speak naturally in English.'
-            : 'O entrevistador está te ouvindo. Fale naturalmente.'}
-          {overtime && ' Tempo extra para finalizar.'}
+          {paused
+            ? 'Pausado — o entrevistador não está te ouvindo e o tempo está congelado. Faça suas anotações e retome quando quiser.'
+            : config.interviewLanguage === 'en-US'
+              ? 'The interviewer is listening. Speak naturally in English.'
+              : 'O entrevistador está te ouvindo. Fale naturalmente.'}
+          {!paused && overtime && ' Tempo extra para finalizar.'}
         </p>
       </div>
 
@@ -207,20 +222,47 @@ export default function LiveInterview({ config, brief, plan, previousCostUsd, on
       )}
 
       {!error && (
-        <div className="flex gap-4">
+        <div className="flex flex-wrap gap-4 justify-center items-center">
           <button
             onClick={toggleMute}
+            disabled={paused}
             title={muted ? 'Reativar microfone' : 'Silenciar microfone'}
-            className={`p-4 rounded-full border transition-colors ${
+            className={`p-4 rounded-full border transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
               muted ? 'bg-red-500/20 border-red-500/50 text-red-300' : 'bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700'
             }`}
           >
             {muted ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
           </button>
+          <Button
+            onClick={togglePause}
+            disabled={!connected}
+            variant={paused ? 'primary' : 'secondary'}
+            className="rounded-full px-6"
+          >
+            <span className="flex items-center gap-2">
+              {paused ? <><Play className="w-5 h-5" /> Retomar</> : <><Pause className="w-5 h-5" /> Pausar</>}
+            </span>
+          </Button>
           <Button variant="danger" onClick={finish} className="rounded-full px-6">
             <span className="flex items-center gap-2"><PhoneOff className="w-5 h-5" /> Encerrar entrevista</span>
           </Button>
         </div>
+      )}
+
+      {/* Bloco de anotações — disponível durante a pausa */}
+      {paused && (
+        <Card className="w-full p-4 border-amber-500/30 bg-amber-950/10 space-y-2">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-amber-300/90">
+            <NotebookPen className="w-4 h-4" /> Suas anotações
+          </div>
+          <textarea
+            autoFocus
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Anote aqui o que quiser durante a pausa… (fica salvo enquanto a entrevista estiver aberta)"
+            className="w-full h-32 resize-y bg-slate-950/60 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+          />
+        </Card>
       )}
 
       <Card className="w-full p-0 overflow-hidden">

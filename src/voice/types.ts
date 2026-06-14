@@ -22,5 +22,7 @@ export interface VoiceCallbacks {
 
 export interface VoiceSession {
   setMuted: (muted: boolean) => void
+  /** Pausa/retoma sem perder contexto: não envia microfone e suspende o áudio. */
+  setPaused: (paused: boolean) => void
   stop: () => void
 }

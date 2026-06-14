@@ -126,6 +126,16 @@ export class PcmPlayer {
     source.onended = () => this.sources.delete(source)
   }
 
+  /** Pausa a reprodução congelando o relógio do contexto (preserva a fila). */
+  pause(): void {
+    if (this.ctx.state === 'running') void this.ctx.suspend()
+  }
+
+  /** Retoma a reprodução de onde parou. */
+  resume(): void {
+    if (this.ctx.state === 'suspended') void this.ctx.resume()
+  }
+
   /** Interrompe imediatamente tudo que está tocando/enfileirado (barge-in). */
   interrupt(): void {
     this.sources.forEach((s) => {

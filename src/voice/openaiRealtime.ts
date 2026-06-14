@@ -141,6 +141,11 @@ export async function startOpenAiRealtime(
 
   return {
     setMuted: (muted) => { mic.muted = muted },
+    setPaused: (paused) => {
+      mic.muted = paused
+      if (paused) player.pause()
+      else player.resume()
+    },
     stop: () => {
       closed = true
       mic.stop()
