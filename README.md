@@ -2,6 +2,11 @@
 
 Simulador de entrevistas de emprego **por voz** com IA — evolução do projeto [personal-interviewer](https://github.com/kleberAbreu/Personal-Interviewer), reescrito do zero com arquitetura multi-provider, entrevista em **português ou inglês** e relatório crítico baseado em evidências.
 
+> 👋 **É a primeira vez aqui ou não é da área de tecnologia?** Leia o
+> **[📖 Manual do Usuário](MANUAL.md)** — um guia amigável, sem termos técnicos,
+> que explica como configurar, usar e tirar o máximo do app para se preparar para
+> entrevistas de emprego.
+
 ## Como funciona
 
 ```
