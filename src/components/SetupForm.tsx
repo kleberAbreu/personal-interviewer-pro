@@ -44,15 +44,13 @@ export default function SetupForm({ onStart }: { onStart: (config: InterviewConf
   const [jobDescription, setJobDescription] = useState(draft.jobDescription ?? '')
   const [cvText, setCvText] = useState(draft.cvText ?? '')
 
-  // Voz precisa pertencer ao engine atual
-  useEffect(() => {
-    if (!voices.includes(voiceName)) setVoiceName(voices[0])
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [interviewerProvider])
+  // Voz precisa pertencer ao engine atual: derivamos em render em vez de corrigir
+  // por efeito (evita setState síncrono em useEffect / cascading renders).
+  const selectedVoiceName = voices.includes(voiceName) ? voiceName : voices[0]
 
   const config: InterviewConfig = {
     area, customArea: customArea || undefined, interviewType,
-    interviewLanguage, feedbackLanguage, stressMode, voiceName,
+    interviewLanguage, feedbackLanguage, stressMode, voiceName: selectedVoiceName,
     duration, weights, jobDescription, cvText,
   }
 
@@ -144,7 +142,7 @@ export default function SetupForm({ onStart }: { onStart: (config: InterviewConf
           <Field label="Voz do entrevistador">
             <div className="relative">
               <Mic2 className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-              <select className={`${inputCls} pl-9`} value={voiceName} onChange={(e) => setVoiceName(e.target.value)}>
+              <select className={`${inputCls} pl-9`} value={selectedVoiceName} onChange={(e) => setVoiceName(e.target.value)}>
                 {voices.map((v) => <option key={v}>{v}</option>)}
               </select>
             </div>

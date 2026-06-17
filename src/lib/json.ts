@@ -2,7 +2,7 @@
 // remove cercas markdown, localiza o objeto e tenta reparar truncamentos.
 
 function tryRepair(str: string): string {
-  let cleaned = str.trim()
+  const cleaned = str.trim()
   const open = (cleaned.match(/\{/g) || []).length
   const close = (cleaned.match(/\}/g) || []).length
   const openB = (cleaned.match(/\[/g) || []).length

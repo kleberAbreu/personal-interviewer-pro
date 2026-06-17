@@ -110,8 +110,11 @@ export default function LiveInterview({ config, brief, plan, previousCostUsd, on
   }, [])
 
   useEffect(() => {
-    void connect()
+    // Adia connect() para fora do corpo do efeito: evita setState síncrono no
+    // effect (cascading renders) e satisfaz react-hooks/set-state-in-effect.
+    const id = window.setTimeout(() => void connect(), 0)
     return () => {
+      window.clearTimeout(id)
       sessionRef.current?.stop()
       sessionRef.current = null
     }
