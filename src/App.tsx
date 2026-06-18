@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { BrainCircuit, CheckCircle2, Settings } from 'lucide-react'
+import { BookOpen, BrainCircuit, CheckCircle2, Settings } from 'lucide-react'
 import { runAnalyst, runPlanner, runResearcher } from './agents/agents'
 import LiveInterview from './components/LiveInterview'
+import ManualPanel from './components/ManualPanel'
 import ReportView from './components/ReportView'
 import SettingsPanel from './components/SettingsPanel'
 import SetupForm from './components/SetupForm'
@@ -26,6 +27,7 @@ export default function App() {
   const settings = useSettings()
   const [step, setStep] = useState<AppStep>('setup')
   const [showSettings, setShowSettings] = useState(false)
+  const [showManual, setShowManual] = useState(false)
   const [config, setConfig] = useState<InterviewConfig | null>(null)
   const [brief, setBrief] = useState<CompanyBrief | null>(null)
   const [plan, setPlan] = useState<InterviewPlan | null>(null)
@@ -116,8 +118,15 @@ export default function App() {
               <p className="text-[11px] text-slate-500 leading-tight">Simulador de entrevistas por voz · pt-BR & EN</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <Badge tone="slate">{STEP_LABELS[step]}</Badge>
+            <button
+              onClick={() => setShowManual(true)}
+              className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-indigo-500/60 hover:text-indigo-300 text-slate-300 transition-colors"
+              title="Guia & Manual de uso"
+            >
+              <BookOpen className="w-5 h-5" />
+            </button>
             <button
               onClick={() => setShowSettings(true)}
               className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-600 text-slate-300 transition-colors"
@@ -225,6 +234,7 @@ export default function App() {
         )}
       </main>
 
+      {showManual && <ManualPanel onClose={() => setShowManual(false)} />}
       {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
     </div>
   )
