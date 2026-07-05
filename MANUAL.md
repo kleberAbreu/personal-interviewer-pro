@@ -26,9 +26,10 @@ passo a passo, em linguagem simples.
 5. [Durante a entrevista](#5-durante-a-entrevista)
 6. [Seu relatório de desempenho](#6-seu-relatório-de-desempenho)
 7. [Configurações avançadas (opcional)](#7-configurações-avançadas-opcional)
-8. [Dicas para tirar o máximo proveito](#8-dicas-para-tirar-o-máximo-proveito)
-9. [Privacidade e segurança](#9-privacidade-e-segurança)
-10. [Perguntas frequentes e soluções](#10-perguntas-frequentes-e-soluções)
+8. [Modo espectador: uma IA responde por você](#8-modo-espectador-uma-ia-responde-por-você)
+9. [Dicas para tirar o máximo proveito](#9-dicas-para-tirar-o-máximo-proveito)
+10. [Privacidade e segurança](#10-privacidade-e-segurança)
+11. [Perguntas frequentes e soluções](#11-perguntas-frequentes-e-soluções)
 
 ---
 
@@ -288,7 +289,37 @@ Quer dar instruções específicas ao entrevistador? Há duas formas:
 
 ---
 
-## 8. Dicas para tirar o máximo proveito
+## 8. Modo espectador: uma IA responde por você
+
+Quer **ouvir como seriam as respostas ideais** para a sua vaga? No modo espectador,
+uma segunda IA — a **IA Candidata** — assume o seu currículo como identidade e responde
+ao entrevistador no seu lugar, por voz, em tempo real. Você só escuta e aprende.
+
+**Como usar:**
+
+1. Na tela inicial, em **"Quem responde às perguntas"**, escolha **IA candidata (espectador)**.
+2. Cole o seu CV (obrigatório neste modo — ele é a identidade da candidata).
+3. Prepare a entrevista normalmente e aperte **Começar**.
+4. Ouça: o entrevistador fala com uma voz, a candidata com outra. A transcrição
+   aparece ao vivo e o relatório final avalia a performance dela.
+
+**Para que serve:**
+
+- 🎯 Entender o que é uma **resposta excelente**: estrutura, métricas, ownership.
+- ⚖️ **Comparar** com as suas próprias entrevistas na mesma vaga.
+- 🧪 Testar diferentes modelos de IA como candidata (⚙ Configurações → Modelos).
+
+**Bom saber:**
+
+- A voz e o modelo da candidata mudam em ⚙ Configurações → Modelos → IA Candidata.
+- Se a resposta falhar (instabilidade do provedor), aparece um botão **Re-tentar**.
+- A entrevista encerra sozinha ao final (com teto de tempo de segurança).
+- Existe uma engine alternativa "Dupla sessão Gemini Live" — é **experimental**;
+  prefira a padrão (texto + voz TTS).
+
+---
+
+## 9. Dicas para tirar o máximo proveito
 
 - 📋 **Capriche na descrição da vaga.** É o ingrediente mais importante. Cole o
   anúncio completo — responsabilidades, requisitos, sobre a empresa. Quanto mais
@@ -313,7 +344,7 @@ Quer dar instruções específicas ao entrevistador? Há duas formas:
 
 ---
 
-## 9. Privacidade e segurança
+## 10. Privacidade e segurança
 
 - 🔒 **Suas chaves ficam só no seu navegador**, neste computador. Elas não são
   enviadas para nenhum servidor do aplicativo — vão diretamente para Google
@@ -327,7 +358,7 @@ Quer dar instruções específicas ao entrevistador? Há duas formas:
 
 ---
 
-## 10. Perguntas frequentes e soluções
+## 11. Perguntas frequentes e soluções
 
 **❓ Falo e nada acontece / não ouço o entrevistador.**
 Verifique três coisas: (1) o navegador pediu e você **autorizou o microfone**;

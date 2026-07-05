@@ -12,6 +12,8 @@ interface Props {
   data: ReportData
   transcript: TranscriptEntry[]
   totalCostUsd: number
+  /** Presente quando quem respondeu foi a IA Candidata (modo espectador). */
+  candidateLabel?: string
   onRestart: () => void
 }
 
@@ -47,7 +49,7 @@ function ScoreBar({ score }: { score: number | null }) {
   )
 }
 
-export default function ReportView({ data, transcript, totalCostUsd, onRestart }: Props) {
+export default function ReportView({ data, transcript, totalCostUsd, candidateLabel, onRestart }: Props) {
   const usdToBrl = useSettings((s) => s.usdToBrl)
   const [showTranscript, setShowTranscript] = useState(false)
   const [openQuestion, setOpenQuestion] = useState<number | null>(null)
@@ -57,7 +59,10 @@ export default function ReportView({ data, transcript, totalCostUsd, onRestart }
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-16">
       <div className="flex flex-wrap items-center justify-between gap-3 no-print">
-        <h2 className="text-2xl font-bold">Relatório de Performance</h2>
+        <div className="flex items-center gap-3">
+          <h2 className="text-2xl font-bold">Relatório de Performance</h2>
+          {candidateLabel && <Badge tone="green">🤖 Candidato: {candidateLabel}</Badge>}
+        </div>
         <div className="flex gap-2">
           <Button variant="secondary" onClick={() => window.print()}>
             <span className="flex items-center gap-2"><Printer className="w-4 h-4" /> Imprimir / PDF</span>

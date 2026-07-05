@@ -88,7 +88,7 @@ export async function startGeminiLive(
         // o SDK lança erro se enviado. Omitimos: a retomada por handle já funciona.
         sessionResumption: { handle: resumeHandle },
         contextWindowCompression: { slidingWindow: {} },
-        tools: [
+        tools: opts.enableEndTool === false ? undefined : [
           {
             functionDeclarations: [
               {
@@ -110,17 +110,20 @@ export async function startGeminiLive(
           if (!kickoffSent) {
             kickoffSent = true
             // Kickoff: pede ao entrevistador que comece (Gemini não fala sem input).
-            connectingPromise
-              ?.then((s) => s.sendClientContent({
-                turns: [{
-                  role: 'user',
-                  parts: [{ text: opts.language === 'en-US' ? '(The candidate has joined. Greet them and start the interview.)' : '(O candidato entrou. Cumprimente-o e inicie a entrevista.)' }],
-                }],
-                turnComplete: true,
-              }))
-              .catch((e: unknown) => console.warn('[voice] kickoff falhou:', e))
+            // A sessão da candidata (dual-live) não usa kickoff: responde ao áudio recebido.
+            if (opts.kickoff !== false) {
+              connectingPromise
+                ?.then((s) => s.sendClientContent({
+                  turns: [{
+                    role: 'user',
+                    parts: [{ text: opts.language === 'en-US' ? '(The candidate has joined. Greet them and start the interview.)' : '(O candidato entrou. Cumprimente-o e inicie a entrevista.)' }],
+                  }],
+                  turnComplete: true,
+                }))
+                .catch((e: unknown) => console.warn('[voice] kickoff falhou:', e))
+            }
 
-            // Modo espectador: sem microfone — a candidata entra por sendText.
+            // Modo espectador: sem microfone — a candidata entra por sendText/sendAudio.
             if (opts.captureMic !== false) startMic()
           }
         },
@@ -145,6 +148,7 @@ export async function startGeminiLive(
             const bytes = b64Decode(inline.data)
             cb.onAudioSeconds(0, bytes.length / 2 / 24000)
             player.playPcm16(bytes)
+            cb.onAudioChunk?.(bytes)
           }
 
           // Transcrições (entrevistador = output, candidato = input)
@@ -218,6 +222,16 @@ export async function startGeminiLive(
         })
       } catch (e) {
         console.warn('[voice] sendText falhou:', e)
+      }
+    },
+    sendAudio: (pcm16kBytes) => {
+      if (!session || reconnecting) return
+      try {
+        session.sendRealtimeInput({
+          audio: { data: b64Encode(pcm16kBytes), mimeType: 'audio/pcm;rate=16000' },
+        })
+      } catch {
+        // Frame perdido durante troca de conexão ou erro transitório.
       }
     },
     setPaused: (paused) => {

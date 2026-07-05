@@ -211,7 +211,7 @@ export const AUDIO_TOKENS_PER_SECOND = 32
 
 export const CANDIDATE_ENGINE_LABELS: Record<CandidateEngine, string> = {
   'text-tts': 'LLM texto + voz TTS (recomendado)',
-  'gemini-live': 'Segunda sessão Gemini Live (em breve)',
+  'gemini-live': 'Segunda sessão Gemini Live (experimental)',
 }
 
 export const DEFAULT_CANDIDATE_ENGINE: CandidateEngine = 'text-tts'

@@ -11,6 +11,10 @@ export interface VoiceSessionOptions {
    * a "voz" da candidata entra como texto via VoiceSession.sendText.
    */
   captureMic?: boolean
+  /** Envia o kickoff inicial pedindo para o modelo começar (default true). */
+  kickoff?: boolean
+  /** Registra a tool end_interview (default true). Sessão da candidata dual-live usa false. */
+  enableEndTool?: boolean
 }
 
 export interface VoiceCallbacks {
@@ -19,6 +23,8 @@ export interface VoiceCallbacks {
   onTranscript: (role: 'interviewer' | 'candidate', text: string) => void
   /** Fim de um turno de fala do modelo (transcrições já emitidas). Usado pelo modo espectador. */
   onTurnComplete?: () => void
+  /** Bytes PCM16 24kHz do áudio falado pelo modelo (para roteamento dual-live). */
+  onAudioChunk?: (pcm24kBytes: Uint8Array) => void
   /** Modelo pediu encerramento (tool end_interview). delaySec = áudio restante a tocar. */
   onEndRequested: (delaySec: number) => void
   onError: (message: string) => void
@@ -33,5 +39,7 @@ export interface VoiceSession {
   setPaused: (paused: boolean) => void
   /** Envia um turno de TEXTO como se fosse a fala do candidato (modo espectador). */
   sendText: (text: string) => void
+  /** Envia áudio PCM16 16kHz como input realtime (roteamento dual-live). */
+  sendAudio: (pcm16kBytes: Uint8Array) => void
   stop: () => void
 }

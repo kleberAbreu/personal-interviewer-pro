@@ -167,7 +167,7 @@ function CandidateExtras() {
           onChange={(e) => setCandidateEngine(e.target.value as CandidateEngine)}
         >
           {(Object.keys(CANDIDATE_ENGINE_LABELS) as CandidateEngine[]).map((engine) => (
-            <option key={engine} value={engine} disabled={engine === 'gemini-live'}>
+            <option key={engine} value={engine}>
               {CANDIDATE_ENGINE_LABELS[engine]}
             </option>
           ))}
