@@ -1,4 +1,4 @@
-import type { AgentRole, ModelRef, Provider } from '../types'
+import type { AgentRole, CandidateEngine, ModelRef, Provider } from '../types'
 
 // Precos em USD por 1M de tokens. Modelos de texto sao roteados via OpenRouter;
 // modelos Gemini abaixo sao apenas para entrevista de voz realtime.
@@ -87,6 +87,14 @@ export const CATALOG: ModelInfo[] = [
   },
   {
     provider: 'openrouter',
+    id: 'anthropic/claude-opus-4.8',
+    label: 'Claude Opus 4.8 (via OpenRouter)',
+    inputPerM: 5.0,
+    outputPerM: 25.0,
+    note: 'Topo da familia Opus (1M de contexto). Otimo como IA Candidata de altissima qualidade.',
+  },
+  {
+    provider: 'openrouter',
     id: 'openai/gpt-5.5',
     label: 'GPT-5.5 (via OpenRouter)',
     inputPerM: 5.0,
@@ -172,6 +180,14 @@ export const ROLE_SUGGESTIONS: Record<AgentRole, RoleSuggestion> = {
     rationale:
       'Fable via OpenRouter prioriza avaliacao critica sem exigir chave Anthropic direta.',
   },
+  candidate: {
+    title: 'IA Candidata (modo espectador)',
+    description: 'Assume o seu CV como identidade e responde ao entrevistador com maestria, em tempo real.',
+    recommended: or('~anthropic/claude-sonnet-latest'),
+    alternatives: [or('~anthropic/claude-fable-latest'), or('anthropic/claude-opus-4.8'), or('openai/gpt-5.5')],
+    rationale:
+      'Sonnet (alias latest → Sonnet 5) equilibra qualidade e latencia — essencial em conversa de voz em tempo real. Fable e Opus 4.8 elevam a qualidade ao maximo, com latencia e custo maiores.',
+  },
 }
 
 export const DEFAULT_MODELS: Record<AgentRole, ModelRef> = {
@@ -179,6 +195,7 @@ export const DEFAULT_MODELS: Record<AgentRole, ModelRef> = {
   planner: ROLE_SUGGESTIONS.planner.recommended,
   interviewer: ROLE_SUGGESTIONS.interviewer.recommended,
   analyst: ROLE_SUGGESTIONS.analyst.recommended,
+  candidate: ROLE_SUGGESTIONS.candidate.recommended,
 }
 
 export const GEMINI_VOICES = ['Kore', 'Puck', 'Charon', 'Fenrir', 'Aoede', 'Leda', 'Orus', 'Zephyr']
@@ -189,3 +206,23 @@ export function voicesForProvider(provider: Provider): string[] {
 }
 
 export const AUDIO_TOKENS_PER_SECOND = 32
+
+// ── IA Candidata (modo espectador) ──────────────────────────────────────────
+
+export const CANDIDATE_ENGINE_LABELS: Record<CandidateEngine, string> = {
+  'text-tts': 'LLM texto + voz TTS (recomendado)',
+  'gemini-live': 'Segunda sessão Gemini Live (em breve)',
+}
+
+export const DEFAULT_CANDIDATE_ENGINE: CandidateEngine = 'text-tts'
+
+/** Voz padrão da candidata — diferente do default do entrevistador (Kore) para distinguir na escuta. */
+export const DEFAULT_CANDIDATE_VOICE = 'Puck'
+
+/** Modelos Gemini TTS para a voz da candidata (engine texto+TTS). Verificado em ai.google.dev, 07/2026. */
+export const CANDIDATE_TTS_MODELS = [
+  { id: 'gemini-2.5-flash-tts', label: 'Gemini 2.5 Flash TTS (estável)' },
+  { id: 'gemini-3.1-flash-tts-preview', label: 'Gemini 3.1 Flash TTS (preview, mais expressivo)' },
+] as const
+
+export const DEFAULT_CANDIDATE_TTS_MODEL = 'gemini-2.5-flash-tts'

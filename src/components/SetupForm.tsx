@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Briefcase, FileText, Flame, Globe2, Mic2, Rocket, SlidersHorizontal, Timer } from 'lucide-react'
+import { Bot, Briefcase, FileText, Flame, Globe2, Mic2, Rocket, SlidersHorizontal, Timer, UserRound } from 'lucide-react'
 import { voicesForProvider } from '../config/models'
 import { useSettings } from '../store'
-import type { Area, InterviewConfig, InterviewType, Language, Weights } from '../types'
+import type { Area, CandidateMode, InterviewConfig, InterviewType, Language, Weights } from '../types'
 import { Button, Card, Field, SectionTitle, inputCls } from './ui'
 
 const AREAS: Area[] = ['Software', 'Produto', 'Dados', 'Comercial', 'Outra']
@@ -38,6 +38,7 @@ export default function SetupForm({ onStart }: { onStart: (config: InterviewConf
   const [interviewLanguage, setInterviewLanguage] = useState<Language>(draft.interviewLanguage ?? 'pt-BR')
   const [feedbackLanguage, setFeedbackLanguage] = useState<Language>(draft.feedbackLanguage ?? 'pt-BR')
   const [stressMode, setStressMode] = useState(draft.stressMode ?? false)
+  const [candidateMode, setCandidateMode] = useState<CandidateMode>(draft.candidateMode ?? 'human')
   const [voiceName, setVoiceName] = useState(draft.voiceName && voices.includes(draft.voiceName) ? draft.voiceName : voices[0])
   const [duration, setDuration] = useState<15 | 30 | 45>(draft.duration ?? 30)
   const [weights, setWeights] = useState<Weights>(draft.weights ?? DEFAULT_WEIGHTS)
@@ -50,16 +51,19 @@ export default function SetupForm({ onStart }: { onStart: (config: InterviewConf
 
   const config: InterviewConfig = {
     area, customArea: customArea || undefined, interviewType,
-    interviewLanguage, feedbackLanguage, stressMode, voiceName: selectedVoiceName,
+    interviewLanguage, feedbackLanguage, stressMode, candidateMode, voiceName: selectedVoiceName,
     duration, weights, jobDescription, cvText,
   }
 
   useEffect(() => {
     localStorage.setItem(DRAFT_KEY, JSON.stringify(config))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [area, customArea, interviewType, interviewLanguage, feedbackLanguage, stressMode, voiceName, duration, weights, jobDescription, cvText])
+  }, [area, customArea, interviewType, interviewLanguage, feedbackLanguage, stressMode, candidateMode, voiceName, duration, weights, jobDescription, cvText])
 
-  const canStart = jobDescription.trim().length > 30
+  const hasJd = jobDescription.trim().length > 30
+  // Modo espectador exige CV: é a identidade que a IA candidata assume.
+  const hasCvForAi = candidateMode === 'human' || cvText.trim().length >= 100
+  const canStart = hasJd && hasCvForAi
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -108,6 +112,43 @@ export default function SetupForm({ onStart }: { onStart: (config: InterviewConf
             placeholder="Cole o texto do seu currículo…"
           />
         </Field>
+      </Card>
+
+      <Card className="p-6 space-y-4">
+        <SectionTitle icon={<Bot className="w-4 h-4" />}>Quem responde às perguntas</SectionTitle>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => setCandidateMode('human')}
+            className={`flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm font-semibold border transition-all ${
+              candidateMode === 'human'
+                ? 'bg-indigo-600 border-indigo-500 text-white'
+                : 'bg-slate-950/60 border-slate-700 text-slate-400 hover:border-slate-500'
+            }`}
+          >
+            <UserRound className="w-4 h-4" />
+            Eu, por voz
+          </button>
+          <button
+            type="button"
+            onClick={() => setCandidateMode('ai')}
+            className={`flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm font-semibold border transition-all ${
+              candidateMode === 'ai'
+                ? 'bg-emerald-600 border-emerald-500 text-white'
+                : 'bg-slate-950/60 border-slate-700 text-slate-400 hover:border-slate-500'
+            }`}
+          >
+            <Bot className="w-4 h-4" />
+            IA candidata (espectador)
+          </button>
+        </div>
+        {candidateMode === 'ai' && (
+          <p className="text-xs text-emerald-300/90 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-3 py-2">
+            A IA assume o <strong>seu CV</strong> como identidade e responde ao entrevistador com maestria —
+            você apenas ouve a conversa e aprende com as respostas ideais. Requer o CV preenchido acima
+            (mínimo ~100 caracteres). Modelo e voz da candidata: ⚙ Configurações → Modelos.
+          </p>
+        )}
       </Card>
 
       <Card className="p-6 space-y-6">
@@ -204,7 +245,10 @@ export default function SetupForm({ onStart }: { onStart: (config: InterviewConf
       </div>
       {!canStart && (
         <p className="text-center text-xs text-slate-500 -mt-8 pb-6 flex items-center justify-center gap-1">
-          <FileText className="w-3 h-3" /> Cole a descrição da vaga para começar.
+          <FileText className="w-3 h-3" />
+          {!hasJd
+            ? 'Cole a descrição da vaga para começar.'
+            : 'No modo espectador, cole também o seu CV — ele é a identidade da IA candidata.'}
         </p>
       )}
     </div>

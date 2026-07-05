@@ -1,6 +1,11 @@
 export type Provider = 'gemini' | 'openrouter'
-export type AgentRole = 'researcher' | 'planner' | 'interviewer' | 'analyst'
+export type AgentRole = 'researcher' | 'planner' | 'interviewer' | 'analyst' | 'candidate'
 export type Language = 'pt-BR' | 'en-US'
+
+/** Quem responde às perguntas: você (voz) ou a IA candidata (modo espectador). */
+export type CandidateMode = 'human' | 'ai'
+/** Engine da IA candidata: LLM texto + TTS (padrão) ou segunda sessão Gemini Live. */
+export type CandidateEngine = 'text-tts' | 'gemini-live'
 export type Area = 'Software' | 'Produto' | 'Dados' | 'Comercial' | 'Outra'
 export type InterviewType = 'RH' | 'Tecnica' | 'Case' | 'Mista'
 export type AppStep = 'setup' | 'preparing' | 'ready' | 'interview' | 'analyzing' | 'report'
@@ -30,6 +35,7 @@ export interface InterviewConfig {
   interviewLanguage: Language
   feedbackLanguage: Language
   stressMode: boolean
+  candidateMode: CandidateMode
   voiceName: string
   duration: 15 | 30 | 45
   weights: Weights
