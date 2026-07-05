@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { BookOpen, BrainCircuit, CheckCircle2, Settings } from 'lucide-react'
 import { runAnalyst, runPlanner, runResearcher } from './agents/agents'
 import LiveInterview from './components/LiveInterview'
+import SpectatorInterview from './components/SpectatorInterview'
 import ManualPanel from './components/ManualPanel'
 import ReportView from './components/ReportView'
 import SettingsPanel from './components/SettingsPanel'
@@ -210,6 +211,12 @@ export default function App() {
               <p className="text-slate-300"><strong>Tom:</strong> {brief.interview_style_profile?.tone || 'Neutro'}</p>
               <p className="text-slate-300"><strong>Rigor:</strong> {brief.interview_style_profile?.strictness_level ?? '?'}/5</p>
               <p className="text-slate-300"><strong>Voz:</strong> {config.voiceName} · <strong>Engine:</strong> {modelInfo(settings.models.interviewer)?.label}</p>
+              {config.candidateMode === 'ai' && (
+                <p className="text-emerald-300">
+                  <strong>🤖 Modo espectador:</strong> a IA candidata responde por você
+                  ({settings.candidateEngine === 'gemini-live' ? 'dupla sessão Live · experimental' : settings.models.candidate.model.split('/').pop()})
+                </p>
+              )}
               <p className="text-slate-300"><strong>Blocos:</strong> {plan.interview_plan.blocks.map((b) => b.name).join(' → ')}</p>
               <p className="text-xs text-slate-500 pt-1">Custo de preparação: {formatBrl(totalCostUsd, settings.usdToBrl)} (est.)</p>
             </Card>
@@ -220,17 +227,35 @@ export default function App() {
         )}
 
         {step === 'interview' && config && brief && plan && (
-          <LiveInterview
-            config={config}
-            brief={brief}
-            plan={plan}
-            previousCostUsd={totalCostUsd}
-            onFinish={(t, cost) => void handleInterviewFinish(t, cost)}
-          />
+          config.candidateMode === 'ai' ? (
+            <SpectatorInterview
+              config={config}
+              brief={brief}
+              plan={plan}
+              previousCostUsd={totalCostUsd}
+              onFinish={(t, cost) => void handleInterviewFinish(t, cost)}
+            />
+          ) : (
+            <LiveInterview
+              config={config}
+              brief={brief}
+              plan={plan}
+              previousCostUsd={totalCostUsd}
+              onFinish={(t, cost) => void handleInterviewFinish(t, cost)}
+            />
+          )
         )}
 
         {step === 'report' && report && (
-          <ReportView data={report} transcript={transcript} totalCostUsd={totalCostUsd} onRestart={handleRestart} />
+          <ReportView
+            data={report}
+            transcript={transcript}
+            totalCostUsd={totalCostUsd}
+            candidateLabel={config?.candidateMode === 'ai'
+              ? `IA (${settings.candidateEngine === 'gemini-live' ? 'Gemini Live dual' : settings.models.candidate.model.split('/').pop()})`
+              : undefined}
+            onRestart={handleRestart}
+          />
         )}
       </main>
 

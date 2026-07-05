@@ -1,11 +1,19 @@
 import { useState } from 'react'
 import { Check, KeyRound, MessageSquareText, Receipt, Sparkles, X } from 'lucide-react'
-import { CATALOG, PROVIDER_LABELS, ROLE_SUGGESTIONS, modelInfo } from '../config/models'
+import {
+  CANDIDATE_ENGINE_LABELS,
+  CANDIDATE_TTS_MODELS,
+  CATALOG,
+  GEMINI_VOICES,
+  PROVIDER_LABELS,
+  ROLE_SUGGESTIONS,
+  modelInfo,
+} from '../config/models'
 import { useSettings } from '../store'
-import type { AgentRole, ApiKeys } from '../types'
+import type { AgentRole, ApiKeys, CandidateEngine } from '../types'
 import { Badge, Button, Card, Field, inputCls } from './ui'
 
-const ROLES: AgentRole[] = ['researcher', 'planner', 'interviewer', 'analyst']
+const ROLES: AgentRole[] = ['researcher', 'planner', 'interviewer', 'analyst', 'candidate']
 type Tab = 'keys' | 'models' | 'prompt' | 'cost'
 
 export default function SettingsPanel({ onClose }: { onClose: () => void }) {
@@ -60,7 +68,7 @@ function KeysTab() {
   const { keys, setKey } = useSettings()
   const entries: Array<{ id: keyof ApiKeys; label: string; hint: string }> = [
     { id: 'gemini', label: 'Google Gemini', hint: 'aistudio.google.com/apikey — usada apenas para a entrevista por voz ao vivo via Gemini Live.' },
-    { id: 'openrouter', label: 'OpenRouter', hint: 'openrouter.ai/keys — usada para Pesquisador, Planejador e Analista com Claude, GPT, Gemini, DeepSeek e mais.' },
+    { id: 'openrouter', label: 'OpenRouter', hint: 'openrouter.ai/keys — usada para Pesquisador, Planejador, Analista e IA Candidata com Claude, GPT, Gemini, DeepSeek e mais.' },
   ]
   return (
     <div className="space-y-5">
@@ -122,6 +130,7 @@ function ModelsTab() {
               ))}
             </select>
             {info?.note && <p className="text-xs text-slate-500 mt-2">{info.note}</p>}
+            {role === 'candidate' && <CandidateExtras />}
             <div className="mt-3 p-3 rounded-xl bg-indigo-500/5 border border-indigo-500/20">
               <p className="text-xs text-indigo-200/90">
                 <strong>Sugestão:</strong> {sug.rationale}
@@ -138,6 +147,42 @@ function ModelsTab() {
           </Card>
         )
       })}
+    </div>
+  )
+}
+
+/** Configurações extras da IA Candidata: engine de voz, voz TTS e modelo TTS. */
+function CandidateExtras() {
+  const {
+    candidateEngine, setCandidateEngine,
+    candidateVoice, setCandidateVoice,
+    candidateTtsModel, setCandidateTtsModel,
+  } = useSettings()
+  return (
+    <div className="mt-3 grid md:grid-cols-3 gap-3">
+      <Field label="Engine de voz">
+        <select
+          className={inputCls}
+          value={candidateEngine}
+          onChange={(e) => setCandidateEngine(e.target.value as CandidateEngine)}
+        >
+          {(Object.keys(CANDIDATE_ENGINE_LABELS) as CandidateEngine[]).map((engine) => (
+            <option key={engine} value={engine}>
+              {CANDIDATE_ENGINE_LABELS[engine]}
+            </option>
+          ))}
+        </select>
+      </Field>
+      <Field label="Voz da candidata">
+        <select className={inputCls} value={candidateVoice} onChange={(e) => setCandidateVoice(e.target.value)}>
+          {GEMINI_VOICES.map((v) => <option key={v}>{v}</option>)}
+        </select>
+      </Field>
+      <Field label="Modelo TTS">
+        <select className={inputCls} value={candidateTtsModel} onChange={(e) => setCandidateTtsModel(e.target.value)}>
+          {CANDIDATE_TTS_MODELS.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+        </select>
+      </Field>
     </div>
   )
 }

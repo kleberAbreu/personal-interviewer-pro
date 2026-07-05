@@ -1,14 +1,14 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import {
-  AlertTriangle, BarChart3, BookOpen, ClipboardList, Flame, Globe2, Info, KeyRound,
+  AlertTriangle, BarChart3, BookOpen, Bot, ClipboardList, Flame, Globe2, Info, KeyRound,
   Lightbulb, MessageSquareText, Mic2, MicOff, Pause, PhoneOff, Receipt, Rocket, Route,
   ShieldCheck, SlidersHorizontal, Sparkles, Wallet, X,
 } from 'lucide-react'
 import { Card } from './ui'
 
 type SectionId =
-  | 'start' | 'keys' | 'paths' | 'prepare' | 'live' | 'report' | 'advanced' | 'tips'
+  | 'start' | 'keys' | 'paths' | 'prepare' | 'live' | 'spectator' | 'report' | 'advanced' | 'tips'
 
 const SECTIONS: Array<{ id: SectionId; label: string; icon: ReactNode }> = [
   { id: 'start', label: 'Como funciona', icon: <Rocket className="w-4 h-4" /> },
@@ -16,6 +16,7 @@ const SECTIONS: Array<{ id: SectionId; label: string; icon: ReactNode }> = [
   { id: 'paths', label: 'Qual caminho usar', icon: <Route className="w-4 h-4" /> },
   { id: 'prepare', label: 'Preparar a entrevista', icon: <ClipboardList className="w-4 h-4" /> },
   { id: 'live', label: 'Durante a entrevista', icon: <Mic2 className="w-4 h-4" /> },
+  { id: 'spectator', label: 'Modo espectador (IA)', icon: <Bot className="w-4 h-4" /> },
   { id: 'report', label: 'Seu relatório', icon: <BarChart3 className="w-4 h-4" /> },
   { id: 'advanced', label: 'Ajustes avançados', icon: <SlidersHorizontal className="w-4 h-4" /> },
   { id: 'tips', label: 'Dicas & soluções', icon: <Lightbulb className="w-4 h-4" /> },
@@ -77,6 +78,7 @@ export default function ManualPanel({ onClose }: { onClose: () => void }) {
               {active === 'paths' && <PathsSection />}
               {active === 'prepare' && <PrepareSection />}
               {active === 'live' && <LiveSection />}
+              {active === 'spectator' && <SpectatorSection />}
               {active === 'report' && <ReportSection />}
               {active === 'advanced' && <AdvancedSection />}
               {active === 'tips' && <TipsSection />}
@@ -355,6 +357,44 @@ function LiveSection() {
         Ao pausar: o microfone para e o entrevistador <Em>não te ouve nem fala</Em>; o <Em>tempo e o custo congelam</Em> (você não gasta
         minutos nem dinheiro parado); abre um <Em>bloco de anotações</Em>; e <Em>nada do contexto é perdido</Em> — ao retomar, a conversa
         volta exatamente de onde parou.
+      </Callout>
+    </>
+  )
+}
+
+function SpectatorSection() {
+  return (
+    <>
+      <Heading
+        icon={<Bot className="w-5 h-5" />}
+        title="Modo espectador: uma IA responde por você"
+        lead="Ouça duas IAs conversando — o entrevistador de sempre e uma IA candidata que assume o SEU currículo e responde com maestria. Perfeito para aprender como seriam as respostas ideais."
+      />
+      <Sub>Como usar</Sub>
+      <Steps
+        items={[
+          <>Na tela inicial, em <Em>&quot;Quem responde às perguntas&quot;</Em>, escolha <Em>IA candidata (espectador)</Em>.</>,
+          <>Cole o seu <Em>CV</Em> — neste modo ele é obrigatório: é a identidade que a candidata assume.</>,
+          <>Prepare a entrevista normalmente e aperte <Em>Começar</Em>.</>,
+          <>Apenas ouça: cada IA tem a sua voz, e a transcrição aparece ao vivo. No final, o relatório avalia a performance da candidata.</>,
+        ]}
+      />
+      <Sub>Para que serve</Sub>
+      <div className="grid sm:grid-cols-2 gap-3">
+        <Tile icon={<Lightbulb className="w-4 h-4" />} title="Aprender o padrão-ouro">
+          Respostas com estrutura STAR, métricas e ownership — ouça o que separa uma resposta comum de uma excelente.
+        </Tile>
+        <Tile icon={<BarChart3 className="w-4 h-4" />} title="Comparar com você">
+          Rode a mesma vaga no modo normal e no espectador e compare os dois relatórios.
+        </Tile>
+      </div>
+      <Callout tone="tip" title="Personalize a candidata">
+        Em ⚙ Configurações → Modelos → <Em>IA Candidata</Em> você escolhe o modelo que pensa as respostas,
+        a voz e a engine. A padrão (texto + voz TTS) é a recomendada; a &quot;dupla sessão Gemini Live&quot; é experimental.
+      </Callout>
+      <Callout tone="warn" title="Se a resposta falhar">
+        Instabilidades do provedor acontecem. Aparece um botão <Em>Re-tentar resposta</Em> — a entrevista não é perdida.
+        E o modo tem teto de tempo: encerra sozinho alguns minutos após o previsto.
       </Callout>
     </>
   )

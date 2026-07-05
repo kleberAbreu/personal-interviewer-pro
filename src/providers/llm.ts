@@ -17,6 +17,21 @@ export interface ChatResult {
   usage: TokenUsage
 }
 
+/** Turno de conversa para chatText (histórico multi-turno). */
+export interface ChatTurn {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+export interface ChatTextParams {
+  ref: ModelRef
+  keys: ApiKeys
+  system: string
+  /** Histórico completo, alternando user (entrevistador) e assistant (candidata). */
+  messages: ChatTurn[]
+  maxTokens?: number
+}
+
 function requireOpenRouterKey(keys: ApiKeys): string {
   if (!keys.openrouter?.trim()) {
     throw new Error('Chave de API OpenRouter não configurada. Abra Configurações → Chaves de API.')
@@ -34,8 +49,15 @@ async function readError(res: Response): Promise<string> {
   }
 }
 
-export async function chatJson(p: ChatParams): Promise<ChatResult> {
-  if (p.ref.provider !== 'openrouter') {
+interface CompletionBody {
+  model: string
+  messages: Array<{ role: string; content: string }>
+  max_completion_tokens: number
+  response_format?: { type: 'json_object' }
+}
+
+async function completions(ref: ModelRef, keys: ApiKeys, body: CompletionBody): Promise<ChatResult> {
+  if (ref.provider !== 'openrouter') {
     throw new Error('Os agentes de texto usam apenas OpenRouter. Ajuste os modelos em Configurações → Modelos.')
   }
 
@@ -43,19 +65,11 @@ export async function chatJson(p: ChatParams): Promise<ChatResult> {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${requireOpenRouterKey(p.keys)}`,
+      Authorization: `Bearer ${requireOpenRouterKey(keys)}`,
       'HTTP-Referer': APP_REFERER,
       'X-Title': APP_TITLE,
     },
-    body: JSON.stringify({
-      model: p.ref.model,
-      messages: [
-        { role: 'system', content: p.system },
-        { role: 'user', content: p.user },
-      ],
-      max_completion_tokens: p.maxTokens ?? 20000,
-      response_format: { type: 'json_object' },
-    }),
+    body: JSON.stringify(body),
   })
 
   if (!res.ok) throw new Error(`OpenRouter ${res.status}: ${await readError(res)}`)
@@ -67,4 +81,25 @@ export async function chatJson(p: ChatParams): Promise<ChatResult> {
       outputTokens: data?.usage?.completion_tokens ?? 0,
     },
   }
+}
+
+export async function chatJson(p: ChatParams): Promise<ChatResult> {
+  return completions(p.ref, p.keys, {
+    model: p.ref.model,
+    messages: [
+      { role: 'system', content: p.system },
+      { role: 'user', content: p.user },
+    ],
+    max_completion_tokens: p.maxTokens ?? 20000,
+    response_format: { type: 'json_object' },
+  })
+}
+
+/** Chat multi-turno em texto livre (sem JSON). Usado pela IA Candidata. */
+export async function chatText(p: ChatTextParams): Promise<ChatResult> {
+  return completions(p.ref, p.keys, {
+    model: p.ref.model,
+    messages: [{ role: 'system', content: p.system }, ...p.messages],
+    max_completion_tokens: p.maxTokens ?? 2000,
+  })
 }

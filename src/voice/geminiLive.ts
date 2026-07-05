@@ -23,6 +23,12 @@ export async function startGeminiLive(
   let session: Session | null = null
   let sessionPromise: Promise<Session> | null = null
   let resumeHandle: string | undefined
+  // Texto (fala da candidata no modo espectador) aguardando sessão disponível.
+  // Reenviado ao reconectar para não perder o turno numa janela de GoAway.
+  const pendingText: string[] = []
+  // Atraso curto do onTurnComplete: se um end_interview chegar logo após o
+  // turnComplete da despedida, cancelamos o turno da candidata.
+  let turnCompleteTimer: ReturnType<typeof setTimeout> | null = null
 
   // Fragmentos de transcrição acumulados até o fim do turno
   let pendingInterviewer = ''
@@ -33,6 +39,29 @@ export async function startGeminiLive(
     if (pendingCandidate.trim()) cb.onTranscript('candidate', pendingCandidate.trim())
     pendingInterviewer = ''
     pendingCandidate = ''
+  }
+
+  const doSendText = (text: string): boolean => {
+    if (!session || reconnecting) return false
+    try {
+      session.sendClientContent({
+        turns: [{ role: 'user', parts: [{ text }] }],
+        turnComplete: true,
+      })
+      return true
+    } catch (e) {
+      console.warn('[voice] sendText falhou:', e)
+      return false
+    }
+  }
+
+  // Reenvia, em ordem, os textos que ficaram na fila enquanto a sessão estava
+  // indisponível (reconexão). Para no primeiro que ainda não puder ser enviado.
+  const flushPendingText = () => {
+    while (pendingText.length) {
+      if (!doSendText(pendingText[0])) break
+      pendingText.shift()
+    }
   }
 
   const startMic = () => {
@@ -88,7 +117,7 @@ export async function startGeminiLive(
         // o SDK lança erro se enviado. Omitimos: a retomada por handle já funciona.
         sessionResumption: { handle: resumeHandle },
         contextWindowCompression: { slidingWindow: {} },
-        tools: [
+        tools: opts.enableEndTool === false ? undefined : [
           {
             functionDeclarations: [
               {
@@ -110,17 +139,21 @@ export async function startGeminiLive(
           if (!kickoffSent) {
             kickoffSent = true
             // Kickoff: pede ao entrevistador que comece (Gemini não fala sem input).
-            connectingPromise
-              ?.then((s) => s.sendClientContent({
-                turns: [{
-                  role: 'user',
-                  parts: [{ text: opts.language === 'en-US' ? '(The candidate has joined. Greet them and start the interview.)' : '(O candidato entrou. Cumprimente-o e inicie a entrevista.)' }],
-                }],
-                turnComplete: true,
-              }))
-              .catch((e: unknown) => console.warn('[voice] kickoff falhou:', e))
+            // A sessão da candidata (dual-live) não usa kickoff: responde ao áudio recebido.
+            if (opts.kickoff !== false) {
+              connectingPromise
+                ?.then((s) => s.sendClientContent({
+                  turns: [{
+                    role: 'user',
+                    parts: [{ text: opts.language === 'en-US' ? '(The candidate has joined. Greet them and start the interview.)' : '(O candidato entrou. Cumprimente-o e inicie a entrevista.)' }],
+                  }],
+                  turnComplete: true,
+                }))
+                .catch((e: unknown) => console.warn('[voice] kickoff falhou:', e))
+            }
 
-            startMic()
+            // Modo espectador: sem microfone — a candidata entra por sendText/sendAudio.
+            if (opts.captureMic !== false) startMic()
           }
         },
         onmessage: (message: LiveServerMessage) => {
@@ -144,12 +177,24 @@ export async function startGeminiLive(
             const bytes = b64Decode(inline.data)
             cb.onAudioSeconds(0, bytes.length / 2 / 24000)
             player.playPcm16(bytes)
+            cb.onAudioChunk?.(bytes)
           }
 
           // Transcrições (entrevistador = output, candidato = input)
           if (content?.outputTranscription?.text) pendingInterviewer += content.outputTranscription.text
           if (content?.inputTranscription?.text) pendingCandidate += content.inputTranscription.text
-          if (content?.turnComplete) flushTranscripts()
+          if (content?.turnComplete) {
+            flushTranscripts()
+            if (!endRequested && cb.onTurnComplete) {
+              // Atraso curto: dá tempo de um end_interview (despedida) chegar e
+              // cancelar este turno, evitando uma resposta desnecessária da candidata.
+              if (turnCompleteTimer) clearTimeout(turnCompleteTimer)
+              turnCompleteTimer = setTimeout(() => {
+                turnCompleteTimer = null
+                if (!closed && !endRequested) cb.onTurnComplete?.()
+              }, 250)
+            }
+          }
 
           // Barge-in: usuário interrompeu o modelo
           if (content?.interrupted) player.interrupt()
@@ -157,6 +202,7 @@ export async function startGeminiLive(
           // Tool call de encerramento
           if (message.toolCall?.functionCalls?.some((c) => c.name === 'end_interview') && !endRequested) {
             endRequested = true
+            if (turnCompleteTimer) { clearTimeout(turnCompleteTimer); turnCompleteTimer = null }
             flushTranscripts()
             cb.onEndRequested(player.remainingSeconds())
           }
@@ -194,6 +240,8 @@ export async function startGeminiLive(
     }
     session = nextSession
     reconnecting = false
+    // Sessão (re)disponível: escoa qualquer fala da candidata que ficou na fila.
+    flushPendingText()
   }
 
   connectSession().catch((e: unknown) =>
@@ -202,6 +250,22 @@ export async function startGeminiLive(
 
   return {
     setMuted: (muted) => { mic.muted = muted },
+    sendText: (text) => {
+      if (!doSendText(text)) {
+        pendingText.push(text)
+        console.warn('[voice] sendText adiado: sessão indisponível; será reenviado ao reconectar')
+      }
+    },
+    sendAudio: (pcm16kBytes) => {
+      if (!session || reconnecting) return
+      try {
+        session.sendRealtimeInput({
+          audio: { data: b64Encode(pcm16kBytes), mimeType: 'audio/pcm;rate=16000' },
+        })
+      } catch {
+        // Frame perdido durante troca de conexão ou erro transitório.
+      }
+    },
     setPaused: (paused) => {
       // Não envia áudio do mic e suspende a reprodução; a sessão WebSocket segue
       // viva (contexto preservado). Se cair na pausa, a retomada por handle reconecta.
@@ -211,6 +275,7 @@ export async function startGeminiLive(
     },
     stop: () => {
       closed = true
+      if (turnCompleteTimer) { clearTimeout(turnCompleteTimer); turnCompleteTimer = null }
       flushTranscripts()
       mic.stop()
       player.close()

@@ -26,6 +26,15 @@ export function floatTo16BitPcmBytes(data: Float32Array): Uint8Array {
   return new Uint8Array(int16.buffer)
 }
 
+/** Reamostra PCM16 mono entre taxas (ex.: 24kHz do Live → 16kHz de input). */
+export function resamplePcm16(bytes: Uint8Array, fromRate: number, toRate: number): Uint8Array {
+  const aligned = bytes.byteOffset % 2 === 0 && bytes.byteLength % 2 === 0 ? bytes : bytes.slice()
+  const int16 = new Int16Array(aligned.buffer, aligned.byteOffset, Math.floor(aligned.byteLength / 2))
+  const f32 = new Float32Array(int16.length)
+  for (let i = 0; i < int16.length; i++) f32[i] = int16[i] / 32768
+  return floatTo16BitPcmBytes(downsample(f32, fromRate, toRate))
+}
+
 export function b64Encode(bytes: Uint8Array): string {
   let binary = ''
   const chunk = 0x8000
