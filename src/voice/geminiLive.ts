@@ -23,6 +23,12 @@ export async function startGeminiLive(
   let session: Session | null = null
   let sessionPromise: Promise<Session> | null = null
   let resumeHandle: string | undefined
+  // Texto (fala da candidata no modo espectador) aguardando sessão disponível.
+  // Reenviado ao reconectar para não perder o turno numa janela de GoAway.
+  const pendingText: string[] = []
+  // Atraso curto do onTurnComplete: se um end_interview chegar logo após o
+  // turnComplete da despedida, cancelamos o turno da candidata.
+  let turnCompleteTimer: ReturnType<typeof setTimeout> | null = null
 
   // Fragmentos de transcrição acumulados até o fim do turno
   let pendingInterviewer = ''
@@ -33,6 +39,29 @@ export async function startGeminiLive(
     if (pendingCandidate.trim()) cb.onTranscript('candidate', pendingCandidate.trim())
     pendingInterviewer = ''
     pendingCandidate = ''
+  }
+
+  const doSendText = (text: string): boolean => {
+    if (!session || reconnecting) return false
+    try {
+      session.sendClientContent({
+        turns: [{ role: 'user', parts: [{ text }] }],
+        turnComplete: true,
+      })
+      return true
+    } catch (e) {
+      console.warn('[voice] sendText falhou:', e)
+      return false
+    }
+  }
+
+  // Reenvia, em ordem, os textos que ficaram na fila enquanto a sessão estava
+  // indisponível (reconexão). Para no primeiro que ainda não puder ser enviado.
+  const flushPendingText = () => {
+    while (pendingText.length) {
+      if (!doSendText(pendingText[0])) break
+      pendingText.shift()
+    }
   }
 
   const startMic = () => {
@@ -156,7 +185,15 @@ export async function startGeminiLive(
           if (content?.inputTranscription?.text) pendingCandidate += content.inputTranscription.text
           if (content?.turnComplete) {
             flushTranscripts()
-            if (!endRequested) cb.onTurnComplete?.()
+            if (!endRequested && cb.onTurnComplete) {
+              // Atraso curto: dá tempo de um end_interview (despedida) chegar e
+              // cancelar este turno, evitando uma resposta desnecessária da candidata.
+              if (turnCompleteTimer) clearTimeout(turnCompleteTimer)
+              turnCompleteTimer = setTimeout(() => {
+                turnCompleteTimer = null
+                if (!closed && !endRequested) cb.onTurnComplete?.()
+              }, 250)
+            }
           }
 
           // Barge-in: usuário interrompeu o modelo
@@ -165,6 +202,7 @@ export async function startGeminiLive(
           // Tool call de encerramento
           if (message.toolCall?.functionCalls?.some((c) => c.name === 'end_interview') && !endRequested) {
             endRequested = true
+            if (turnCompleteTimer) { clearTimeout(turnCompleteTimer); turnCompleteTimer = null }
             flushTranscripts()
             cb.onEndRequested(player.remainingSeconds())
           }
@@ -202,6 +240,8 @@ export async function startGeminiLive(
     }
     session = nextSession
     reconnecting = false
+    // Sessão (re)disponível: escoa qualquer fala da candidata que ficou na fila.
+    flushPendingText()
   }
 
   connectSession().catch((e: unknown) =>
@@ -211,17 +251,9 @@ export async function startGeminiLive(
   return {
     setMuted: (muted) => { mic.muted = muted },
     sendText: (text) => {
-      if (!session || reconnecting) {
-        console.warn('[voice] sendText ignorado: sessão indisponível no momento')
-        return
-      }
-      try {
-        session.sendClientContent({
-          turns: [{ role: 'user', parts: [{ text }] }],
-          turnComplete: true,
-        })
-      } catch (e) {
-        console.warn('[voice] sendText falhou:', e)
+      if (!doSendText(text)) {
+        pendingText.push(text)
+        console.warn('[voice] sendText adiado: sessão indisponível; será reenviado ao reconectar')
       }
     },
     sendAudio: (pcm16kBytes) => {
@@ -243,6 +275,7 @@ export async function startGeminiLive(
     },
     stop: () => {
       closed = true
+      if (turnCompleteTimer) { clearTimeout(turnCompleteTimer); turnCompleteTimer = null }
       flushTranscripts()
       mic.stop()
       player.close()
