@@ -2,10 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { AlertCircle, Bot, Clock, DollarSign, Mic2, Pause, PhoneOff, Play, RefreshCw } from 'lucide-react'
 import { buildInterviewerPrompt } from '../config/prompts'
 import { formatBrl, voiceCostUsd } from '../services/cost'
-import { useSettings } from '../store'
+import { useSettings, type SettingsState } from '../store'
 import { startDualLiveSession } from '../voice/dualLive'
 import { startSpectatorSession, type SpectatorPhase, type SpectatorSession } from '../voice/spectator'
-import type { CompanyBrief, InterviewConfig, InterviewPlan, TranscriptEntry } from '../types'
+import type { CompanyBrief, InterviewConfig, InterviewPlan, ModelRef, TranscriptEntry } from '../types'
 import { Button, Card, Spinner } from './ui'
 
 interface Props {
@@ -25,6 +25,16 @@ const PHASE_TEXT: Record<SpectatorPhase, string> = {
   ended: 'Entrevista encerrada pelo entrevistador.',
 }
 
+interface LatestConnectContext {
+  settings: SettingsState
+  config: InterviewConfig
+  brief: CompanyBrief
+  plan: InterviewPlan
+  interviewerRef: ModelRef
+  candidateRef: ModelRef
+  engine: SettingsState['candidateEngine']
+}
+
 /** Modo espectador: você ouve duas IAs conversando — entrevistador × candidata. */
 export default function SpectatorInterview({ config, brief, plan, previousCostUsd, onFinish }: Props) {
   const settings = useSettings()
@@ -41,17 +51,39 @@ export default function SpectatorInterview({ config, brief, plan, previousCostUs
   const candidateCostRef = useRef(0)
   const finishedRef = useRef(false)
   const logRef = useRef<HTMLDivElement>(null)
+  const finishRef = useRef<() => void>(() => {})
 
   const interviewerRef = settings.models.interviewer
   const candidateRef = settings.models.candidate
   const engine = settings.candidateEngine
+  const activeInterviewerRef = useRef<ModelRef>(interviewerRef)
+  const latestConnectRef = useRef<LatestConnectContext>({
+    settings,
+    config,
+    brief,
+    plan,
+    interviewerRef,
+    candidateRef,
+    engine,
+  })
+
+  useEffect(() => {
+    latestConnectRef.current = {
+      settings,
+      config,
+      brief,
+      plan,
+      interviewerRef,
+      candidateRef,
+      engine,
+    }
+  }, [settings, config, brief, plan, interviewerRef, candidateRef, engine])
 
   const totalSessionCost = useCallback(() => {
     return (
-      voiceCostUsd(interviewerRef, audioSecondsRef.current.input, audioSecondsRef.current.output) +
+      voiceCostUsd(activeInterviewerRef.current, audioSecondsRef.current.input, audioSecondsRef.current.output) +
       candidateCostRef.current
     )
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const finish = useCallback(() => {
@@ -60,42 +92,57 @@ export default function SpectatorInterview({ config, brief, plan, previousCostUs
     sessionRef.current?.stop()
     sessionRef.current = null
     onFinish(transcriptRef.current, totalSessionCost())
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onFinish])
+  }, [onFinish, totalSessionCost])
+
+  useEffect(() => {
+    finishRef.current = finish
+  }, [finish])
 
   const connect = useCallback(async () => {
+    const latest = latestConnectRef.current
+    const {
+      settings: currentSettings,
+      config: currentConfig,
+      brief: currentBrief,
+      plan: currentPlan,
+      interviewerRef: currentInterviewerRef,
+      candidateRef: currentCandidateRef,
+      engine: currentEngine,
+    } = latest
+
     setError(null)
     setPhase('connecting')
     sessionRef.current?.stop()
 
-    if (!settings.keys.gemini?.trim()) {
+    if (!currentSettings.keys.gemini?.trim()) {
       setError('Chave Google Gemini não configurada (Configurações → Chaves de API).')
       return
     }
-    if (engine === 'text-tts' && !settings.keys.openrouter?.trim()) {
+    if (currentEngine === 'text-tts' && !currentSettings.keys.openrouter?.trim()) {
       setError('Chave OpenRouter não configurada — a IA Candidata precisa dela (Configurações → Chaves de API).')
       return
     }
 
+    activeInterviewerRef.current = currentInterviewerRef
     const systemInstruction = buildInterviewerPrompt({
-      template: settings.interviewerTemplate,
-      language: config.interviewLanguage,
-      durationMinutes: config.duration,
-      companyBrief: brief.company_brief,
-      styleProfile: brief.interview_style_profile,
-      plan: plan.interview_plan,
-      stressMode: config.stressMode,
-      extraInstructions: settings.extraInstructions,
+      template: currentSettings.interviewerTemplate,
+      language: currentConfig.interviewLanguage,
+      durationMinutes: currentConfig.duration,
+      companyBrief: currentBrief.company_brief,
+      styleProfile: currentBrief.interview_style_profile,
+      plan: currentPlan.interview_plan,
+      stressMode: currentConfig.stressMode,
+      extraInstructions: currentSettings.extraInstructions,
     })
 
     const opts = {
-      config,
-      keys: settings.keys,
-      interviewerRef,
-      candidateRef,
+      config: currentConfig,
+      keys: currentSettings.keys,
+      interviewerRef: currentInterviewerRef,
+      candidateRef: currentCandidateRef,
       systemInstruction,
-      ttsModel: settings.candidateTtsModel,
-      candidateVoice: settings.candidateVoice,
+      ttsModel: currentSettings.candidateTtsModel,
+      candidateVoice: currentSettings.candidateVoice,
     }
     const callbacks = {
       onPhase: setPhase,
@@ -113,21 +160,20 @@ export default function SpectatorInterview({ config, brief, plan, previousCostUs
         setSessionCost(totalSessionCost())
       },
       onEndRequested: (delaySec: number) => {
-        setTimeout(finish, (delaySec + 1.5) * 1000)
+        setTimeout(() => finishRef.current(), (delaySec + 1.5) * 1000)
       },
       onError: (msg: string) => { if (!finishedRef.current) setError(msg) },
       onClose: () => {},
     }
 
     try {
-      sessionRef.current = engine === 'gemini-live'
+      sessionRef.current = currentEngine === 'gemini-live'
         ? await startDualLiveSession(opts, callbacks)
         : await startSpectatorSession(opts, callbacks)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Falha ao conectar')
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [totalSessionCost])
 
   useEffect(() => {
     const id = window.setTimeout(() => void connect(), 0)
