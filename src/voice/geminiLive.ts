@@ -120,7 +120,8 @@ export async function startGeminiLive(
               }))
               .catch((e: unknown) => console.warn('[voice] kickoff falhou:', e))
 
-            startMic()
+            // Modo espectador: sem microfone — a candidata entra por sendText.
+            if (opts.captureMic !== false) startMic()
           }
         },
         onmessage: (message: LiveServerMessage) => {
@@ -149,7 +150,10 @@ export async function startGeminiLive(
           // Transcrições (entrevistador = output, candidato = input)
           if (content?.outputTranscription?.text) pendingInterviewer += content.outputTranscription.text
           if (content?.inputTranscription?.text) pendingCandidate += content.inputTranscription.text
-          if (content?.turnComplete) flushTranscripts()
+          if (content?.turnComplete) {
+            flushTranscripts()
+            if (!endRequested) cb.onTurnComplete?.()
+          }
 
           // Barge-in: usuário interrompeu o modelo
           if (content?.interrupted) player.interrupt()
@@ -202,6 +206,20 @@ export async function startGeminiLive(
 
   return {
     setMuted: (muted) => { mic.muted = muted },
+    sendText: (text) => {
+      if (!session || reconnecting) {
+        console.warn('[voice] sendText ignorado: sessão indisponível no momento')
+        return
+      }
+      try {
+        session.sendClientContent({
+          turns: [{ role: 'user', parts: [{ text }] }],
+          turnComplete: true,
+        })
+      } catch (e) {
+        console.warn('[voice] sendText falhou:', e)
+      }
+    },
     setPaused: (paused) => {
       // Não envia áudio do mic e suspende a reprodução; a sessão WebSocket segue
       // viva (contexto preservado). Se cair na pausa, a retomada por handle reconecta.
