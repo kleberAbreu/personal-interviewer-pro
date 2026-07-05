@@ -1,110 +1,121 @@
 import type { AgentRole, ModelRef, Provider } from '../types'
 
-// Preços em USD por 1M de tokens. Os preços Anthropic são oficiais (jun/2026);
-// os demais são estimativas baseadas em tabelas públicas — ajuste aqui se mudarem.
+// Precos em USD por 1M de tokens. Modelos de texto sao roteados via OpenRouter;
+// modelos Gemini abaixo sao apenas para entrevista de voz realtime.
 export interface ModelInfo {
   provider: Provider
   id: string
   label: string
   inputPerM: number
   outputPerM: number
-  // USD por 1M tokens de áudio (modelos realtime); tokens estimados por duração
   audioInputPerM?: number
   audioOutputPerM?: number
-  voice?: boolean // suporta entrevista por voz em tempo real
+  voice?: boolean
   note?: string
 }
 
 export const CATALOG: ModelInfo[] = [
-  // ── Google Gemini ──────────────────────────────────────────────
-  // (verificado nas docs oficiais em 13/06/2026; modelos Live antigos
-  //  gemini-2.0-flash-live-001 e gemini-live-2.5-flash-preview foram
-  //  desligados em 09/12/2025; gemini-3-pro-preview em 09/03/2026.)
   {
-    provider: 'gemini', id: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro',
-    inputPerM: 2.0, outputPerM: 12.0,
-    note: 'Raciocínio forte. Substitui o gemini-3-pro-preview (desligado em 09/03/2026).',
+    provider: 'gemini',
+    id: 'gemini-2.5-flash-native-audio-preview-12-2025',
+    label: 'Gemini 2.5 Flash Native Audio (Live)',
+    inputPerM: 0.5,
+    outputPerM: 2.0,
+    audioInputPerM: 3.0,
+    audioOutputPerM: 12.0,
+    voice: true,
+    note: 'Voz nativa via Gemini Live API. Recomendado para pt-BR, barge-in e transcricao dos dois lados.',
   },
   {
-    provider: 'gemini', id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash',
-    inputPerM: 0.3, outputPerM: 2.5,
-    note: 'Rápido e barato. Suficiente para pesquisa de empresa.',
+    provider: 'gemini',
+    id: 'gemini-3.1-flash-live-preview',
+    label: 'Gemini 3.1 Flash Live (preview)',
+    inputPerM: 0.75,
+    outputPerM: 4.5,
+    audioInputPerM: 3.0,
+    audioOutputPerM: 12.0,
+    voice: true,
+    note: 'Fallback Gemini Live mais novo. Use se o Native Audio padrao estiver indisponivel.',
   },
   {
-    provider: 'gemini', id: 'gemini-2.5-flash-native-audio-preview-12-2025', label: 'Gemini 2.5 Flash Native Audio (Live)',
-    inputPerM: 0.5, outputPerM: 2.0, audioInputPerM: 3.0, audioOutputPerM: 12.0, voice: true,
-    note: 'Voz nativa de altíssima qualidade via Live API. Atual (12-2025), roda em v1beta, transcrição dos dois lados + tools. Recomendado.',
+    provider: 'openrouter',
+    id: '~google/gemini-flash-latest',
+    label: 'Gemini Flash Latest (via OpenRouter)',
+    inputPerM: 1.5,
+    outputPerM: 9.0,
+    note: 'Default do Pesquisador. Contexto longo e bom custo para briefing.',
   },
   {
-    provider: 'gemini', id: 'gemini-3.1-flash-live-preview', label: 'Gemini 3.1 Flash Live (preview)',
-    inputPerM: 0.75, outputPerM: 4.5, audioInputPerM: 3.0, audioOutputPerM: 12.0, voice: true,
-    note: 'Modelo Live mais novo. Function calling sequencial (blocking). Em preview.',
-  },
-
-  // ── OpenAI ───────────────────────────────────────────────────────
-  {
-    provider: 'openai', id: 'gpt-5.5', label: 'GPT-5.5',
-    inputPerM: 5.0, outputPerM: 30.0,
-    note: 'Flagship OpenAI. Excelente para análise e relatório.',
+    provider: 'openrouter',
+    id: 'google/gemini-3.5-flash',
+    label: 'Gemini 3.5 Flash (via OpenRouter)',
+    inputPerM: 1.5,
+    outputPerM: 9.0,
+    note: 'Fallback estavel para pesquisa e tarefas leves.',
   },
   {
-    provider: 'openai', id: 'gpt-5.4-mini', label: 'GPT-5.4 Mini',
-    inputPerM: 0.75, outputPerM: 4.5,
-    note: 'Variante mini mais nova (não existe gpt-5.5-mini). Custo baixo para pesquisa.',
+    provider: 'openrouter',
+    id: '~anthropic/claude-sonnet-latest',
+    label: 'Claude Sonnet Latest (via OpenRouter)',
+    inputPerM: 3.0,
+    outputPerM: 15.0,
+    note: 'Default do Planejador. Bom equilibrio entre criterio, velocidade e custo.',
   },
   {
-    provider: 'openai', id: 'gpt-realtime', label: 'GPT Realtime (voz)',
-    inputPerM: 4.0, outputPerM: 24.0, audioInputPerM: 32.0, audioOutputPerM: 64.0, voice: true,
-    note: 'Voz em tempo real via OpenAI Realtime API (GA). Prosódia excelente em inglês. Auth no navegador via subprotocolo (uso pessoal).',
-  },
-
-  // ── Anthropic (preços oficiais) ──────────────────────────────────
-  {
-    provider: 'anthropic', id: 'claude-fable-5', label: 'Claude Fable 5',
-    inputPerM: 10.0, outputPerM: 50.0,
-    note: 'Modelo mais inteligente da Anthropic. Use quando a qualidade do feedback importa mais que o custo.',
+    provider: 'openrouter',
+    id: 'anthropic/claude-sonnet-4.6',
+    label: 'Claude Sonnet 4.6 (via OpenRouter)',
+    inputPerM: 3.0,
+    outputPerM: 15.0,
+    note: 'Fallback estavel para planejamento e avaliacao.',
   },
   {
-    provider: 'anthropic', id: 'claude-opus-4-8', label: 'Claude Opus 4.8',
-    inputPerM: 5.0, outputPerM: 25.0,
-    note: 'Melhor análise crítica baseada em evidências. Recomendado para o Analista.',
+    provider: 'openrouter',
+    id: '~anthropic/claude-fable-latest',
+    label: 'Claude Fable Latest (via OpenRouter)',
+    inputPerM: 10.0,
+    outputPerM: 50.0,
+    note: 'Default do Analista. Melhor para avaliacao critica baseada em evidencias.',
   },
   {
-    provider: 'anthropic', id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6',
-    inputPerM: 3.0, outputPerM: 15.0,
-    note: 'Equilíbrio velocidade/inteligência. Ótimo para o Planejador.',
+    provider: 'openrouter',
+    id: 'anthropic/claude-fable-5',
+    label: 'Claude Fable 5 (via OpenRouter)',
+    inputPerM: 10.0,
+    outputPerM: 50.0,
+    note: 'Fallback estavel para relatorios de alta qualidade.',
   },
   {
-    provider: 'anthropic', id: 'claude-haiku-4-5', label: 'Claude Haiku 4.5',
-    inputPerM: 1.0, outputPerM: 5.0,
-    note: 'Rápido e econômico para tarefas simples.',
-  },
-
-  // ── OpenRouter (roteador multi-modelo) ───────────────────────────
-  {
-    provider: 'openrouter', id: 'openrouter/auto', label: 'OpenRouter Auto',
-    inputPerM: 3.0, outputPerM: 15.0,
-    note: 'O OpenRouter escolhe automaticamente o melhor modelo disponível para o prompt.',
+    provider: 'openrouter',
+    id: 'openai/gpt-5.5',
+    label: 'GPT-5.5 (via OpenRouter)',
+    inputPerM: 5.0,
+    outputPerM: 30.0,
+    note: 'Opcao forte de texto via OpenRouter, sem chave OpenAI direta.',
   },
   {
-    provider: 'openrouter', id: 'anthropic/claude-opus-4.8', label: 'Claude Opus 4.8 (via OpenRouter)',
-    inputPerM: 5.0, outputPerM: 25.0,
-    note: 'Acesso ao Claude com uma única chave OpenRouter.',
+    provider: 'openrouter',
+    id: 'deepseek/deepseek-v4-pro',
+    label: 'DeepSeek V4 Pro (via OpenRouter)',
+    inputPerM: 0.435,
+    outputPerM: 0.87,
+    note: 'Opcao economica para textos longos.',
   },
   {
-    provider: 'openrouter', id: 'openai/gpt-5.5', label: 'GPT-5.5 (via OpenRouter)',
-    inputPerM: 1.25, outputPerM: 10.0,
-    note: 'Acesso ao GPT com uma única chave OpenRouter.',
+    provider: 'openrouter',
+    id: 'deepseek/deepseek-v4-flash',
+    label: 'DeepSeek V4 Flash (via OpenRouter)',
+    inputPerM: 0.09,
+    outputPerM: 0.18,
+    note: 'Opcao mais barata para iteracoes de baixo risco.',
   },
   {
-    provider: 'openrouter', id: 'google/gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro (via OpenRouter)',
-    inputPerM: 2.0, outputPerM: 12.0,
-    note: 'Acesso ao Gemini com uma única chave OpenRouter.',
-  },
-  {
-    provider: 'openrouter', id: 'deepseek/deepseek-v4-pro', label: 'DeepSeek V4 Pro (via OpenRouter)',
-    inputPerM: 0.5, outputPerM: 2.0,
-    note: 'Custo muito baixo com qualidade alta. Bom fallback econômico.',
+    provider: 'openrouter',
+    id: 'openrouter/auto',
+    label: 'OpenRouter Auto',
+    inputPerM: 3.0,
+    outputPerM: 15.0,
+    note: 'Roteamento automatico. O custo real depende do modelo escolhido pelo OpenRouter.',
   },
 ]
 
@@ -114,8 +125,6 @@ export function modelInfo(ref: ModelRef): ModelInfo | undefined {
 
 export const PROVIDER_LABELS: Record<Provider, string> = {
   gemini: 'Google Gemini',
-  openai: 'OpenAI',
-  anthropic: 'Anthropic',
   openrouter: 'OpenRouter',
 }
 
@@ -127,75 +136,56 @@ export interface RoleSuggestion {
   rationale: string
 }
 
+const or = (model: string): ModelRef => ({ provider: 'openrouter', model })
+const gemini = (model: string): ModelRef => ({ provider: 'gemini', model })
+
 export const ROLE_SUGGESTIONS: Record<AgentRole, RoleSuggestion> = {
   researcher: {
     title: 'Pesquisador (Company Brief)',
     description: 'Analisa a vaga e o CV e monta o perfil da empresa, cultura e estilo de entrevista.',
-    recommended: { provider: 'anthropic', model: 'claude-opus-4-8' },
-    alternatives: [
-      { provider: 'openai', model: 'gpt-5.5' },
-      { provider: 'gemini', model: 'gemini-3.1-pro-preview' },
-      { provider: 'anthropic', model: 'claude-sonnet-4-6' },
-    ],
+    recommended: or('~google/gemini-flash-latest'),
+    alternatives: [or('google/gemini-3.5-flash'), or('deepseek/deepseek-v4-flash'), or('~anthropic/claude-sonnet-latest')],
     rationale:
-      'Um brief preciso melhora tudo que vem depois: o Opus 4.8 infere cultura e estilo de entrevista com mais nuance e menos invenção. Para economizar, Gemini 3.1 Pro ou Sonnet 4.6 dão conta.',
+      'Gemini Flash via OpenRouter combina contexto longo e bom custo para montar o brief sem gastar o modelo mais caro.',
   },
   planner: {
     title: 'Planejador (Roteiro da entrevista)',
     description: 'Cria o roteiro adaptativo em blocos cronometrados, com rubrica e guardrails.',
-    recommended: { provider: 'anthropic', model: 'claude-opus-4-8' },
-    alternatives: [
-      { provider: 'anthropic', model: 'claude-fable-5' },
-      { provider: 'openai', model: 'gpt-5.5' },
-      { provider: 'gemini', model: 'gemini-3.1-pro-preview' },
-    ],
+    recommended: or('~anthropic/claude-sonnet-latest'),
+    alternatives: [or('anthropic/claude-sonnet-4.6'), or('openai/gpt-5.5'), or('deepseek/deepseek-v4-pro')],
     rationale:
-      'Boas perguntas definem a qualidade da simulação. Claude Opus 4.8 calibra perguntas comportamentais e técnicas por senioridade com precisão de entrevistador experiente.',
+      'Sonnet via OpenRouter entrega boa calibragem por senioridade e follow-ups sem exigir chave Anthropic direta.',
   },
   interviewer: {
-    title: 'Entrevistador (voz em tempo real)',
-    description: 'Conduz a entrevista por voz (pt-BR ou inglês), com follow-ups dinâmicos.',
-    recommended: { provider: 'gemini', model: 'gemini-2.5-flash-native-audio-preview-12-2025' },
-    alternatives: [
-      { provider: 'gemini', model: 'gemini-3.1-flash-live-preview' },
-      { provider: 'openai', model: 'gpt-realtime' },
-    ],
+    title: 'Entrevistador (voz ao vivo)',
+    description: 'Conduz a entrevista por voz realtime full-duplex via Gemini Live.',
+    recommended: gemini('gemini-2.5-flash-native-audio-preview-12-2025'),
+    alternatives: [gemini('gemini-3.1-flash-live-preview')],
     rationale:
-      'Apenas Gemini Live e OpenAI Realtime suportam conversa de voz no navegador. O Native Audio 12-2025 é o atual e dá a voz pt-BR mais natural (roda em v1beta, sem acesso especial). O 3.1 Flash Live é o mais novo. GPT Realtime tem prosódia excelente em inglês.',
+      'Gemini Live preserva a qualidade atual: audio continuo, barge-in, pausa/retomada e transcricao dos dois lados.',
   },
   analyst: {
-    title: 'Analista (Relatório de performance)',
-    description: 'Audita a transcrição e gera o relatório com notas, evidências e plano de treino.',
-    recommended: { provider: 'anthropic', model: 'claude-fable-5' },
-    alternatives: [
-      { provider: 'anthropic', model: 'claude-opus-4-8' },
-      { provider: 'openai', model: 'gpt-5.5' },
-      { provider: 'gemini', model: 'gemini-3.1-pro-preview' },
-    ],
+    title: 'Analista (Relatorio de performance)',
+    description: 'Audita a transcricao e gera o relatorio com notas, evidencias e plano de treino.',
+    recommended: or('~anthropic/claude-fable-latest'),
+    alternatives: [or('anthropic/claude-fable-5'), or('openai/gpt-5.5'), or('~anthropic/claude-sonnet-latest')],
     rationale:
-      'A função mais sensível à inteligência: exige avaliação crítica sem alucinação e citações literais. Claude Fable 5 é o teto de qualidade em análise baseada em evidências; Opus 4.8 entrega quase o mesmo por metade do custo.',
+      'Fable via OpenRouter prioriza avaliacao critica sem exigir chave Anthropic direta.',
   },
 }
 
-// Padrão de fábrica: melhor modelo por função (foco em qualidade, não economia).
-// Requer chaves Anthropic (texto) + Gemini (voz). O contador de custos usa os
-// preços do catálogo acima normalmente. Alternativas econômicas no painel de Modelos.
 export const DEFAULT_MODELS: Record<AgentRole, ModelRef> = {
-  researcher: { provider: 'anthropic', model: 'claude-opus-4-8' },
-  planner: { provider: 'anthropic', model: 'claude-opus-4-8' },
-  interviewer: { provider: 'gemini', model: 'gemini-2.5-flash-native-audio-preview-12-2025' },
-  analyst: { provider: 'anthropic', model: 'claude-fable-5' },
+  researcher: ROLE_SUGGESTIONS.researcher.recommended,
+  planner: ROLE_SUGGESTIONS.planner.recommended,
+  interviewer: ROLE_SUGGESTIONS.interviewer.recommended,
+  analyst: ROLE_SUGGESTIONS.analyst.recommended,
 }
 
 export const GEMINI_VOICES = ['Kore', 'Puck', 'Charon', 'Fenrir', 'Aoede', 'Leda', 'Orus', 'Zephyr']
-export const OPENAI_VOICES = ['cedar', 'marin', 'alloy', 'ash', 'ballad', 'coral', 'echo', 'sage', 'shimmer', 'verse']
 
 export function voicesForProvider(provider: Provider): string[] {
-  return provider === 'openai' ? OPENAI_VOICES : GEMINI_VOICES
+  void provider
+  return GEMINI_VOICES
 }
 
-// Tokens de áudio por segundo (aproximação para estimativa de custo)
-export const AUDIO_TOKENS_PER_SECOND: Record<'gemini' | 'openai', number> = {
-  gemini: 32,
-  openai: 10,
-}
+export const AUDIO_TOKENS_PER_SECOND = 32

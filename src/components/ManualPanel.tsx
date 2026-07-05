@@ -204,10 +204,8 @@ function StartSection() {
 
 function KeysSection() {
   const providers: Array<{ name: string; url: string; what: string }> = [
-    { name: 'Google Gemini', url: 'aistudio.google.com/apikey', what: 'Faz a entrevista por voz. É a única chave que você precisa para começar.' },
-    { name: 'Anthropic (Claude)', url: 'console.anthropic.com', what: 'Deixa o preparo e, principalmente, a análise final mais afiados. É o padrão de fábrica.' },
-    { name: 'OpenAI', url: 'platform.openai.com/api-keys', what: 'Voz alternativa, com prosódia excelente em inglês. Opcional.' },
-    { name: 'OpenRouter', url: 'openrouter.ai/keys', what: 'Uma chave única que acessa Claude, GPT, Gemini, DeepSeek e mais — sem criar várias contas.' },
+    { name: 'Google Gemini', url: 'aistudio.google.com/apikey', what: 'Faz a entrevista por voz ao vivo, com barge-in e transcrição dos dois lados.' },
+    { name: 'OpenRouter', url: 'openrouter.ai/keys', what: 'Roda Pesquisador, Planejador e Analista com Claude, GPT, Gemini, DeepSeek e mais.' },
   ]
   return (
     <>
@@ -217,9 +215,9 @@ function KeysSection() {
         lead="Esta é a única parte que exige um pouco de preparação — e é mais simples do que parece."
       />
       <P>
-        O app não tem “cérebro” próprio: ele se conecta a inteligências artificiais de grandes empresas (Google, OpenAI, Anthropic)
-        para pensar e conversar. Para usá-las em seu nome, você precisa de uma <Em>chave de acesso</Em> — uma espécie de senha pessoal
-        da sua conta em cada serviço. Você cria a conta no site oficial, copia a chave e cola no app. Só isso.
+        O app não tem “cérebro” próprio: ele usa o Google Gemini para a voz ao vivo e o OpenRouter para acessar modelos de texto
+        como Claude, GPT, Gemini e DeepSeek. Para usá-los em seu nome, você precisa de uma <Em>chave de acesso</Em> — uma espécie
+        de senha pessoal da sua conta em cada serviço. Você cria a conta no site oficial, copia a chave e cola no app. Só isso.
       </P>
 
       <Callout tone="money" title="Tem custo?">
@@ -233,7 +231,7 @@ function KeysSection() {
           <>Clique no ícone de <Em>engrenagem ⚙</Em> no canto superior direito.</>,
           <>Abra a aba <Em>“Chaves de API”</Em>.</>,
           <>Cole a chave no campo do provedor correspondente.</>,
-          <>Pronto — pode fechar. Só preencha as chaves dos provedores que for usar.</>,
+          <>Pronto — pode fechar. São só duas chaves: Gemini para voz e OpenRouter para texto.</>,
         ]}
       />
 
@@ -264,27 +262,26 @@ function PathsSection() {
       <Heading
         icon={<Route className="w-5 h-5" />}
         title="Qual caminho usar"
-        lead="Você não precisa de todas as chaves. Escolha o caminho que combina com o seu momento."
+        lead="A configuração principal usa duas chaves: Gemini para voz ao vivo e OpenRouter para texto."
       />
 
       <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 space-y-1.5">
-        <div className="flex items-center gap-2 font-semibold text-emerald-300">🟢 Mais fácil — só o Google Gemini</div>
-        <P>Com <Em>uma única conta do Gemini</Em>, o app já funciona inteirinho, incluindo a voz. É o jeito mais simples de começar. Depois, em <Em>Configurações → Modelos</Em>, você pode deixar todos os assistentes no Gemini.</P>
+        <div className="flex items-center gap-2 font-semibold text-emerald-300">🟢 Voz ao vivo — Google Gemini</div>
+        <P>O <Em>Gemini</Em> cuida da conversa por voz em tempo real, com interrupções naturais, pausa/retomada e transcrição dos dois lados.</P>
       </div>
 
       <div className="rounded-xl border border-sky-500/30 bg-sky-500/5 p-4 space-y-1.5">
-        <div className="flex items-center gap-2 font-semibold text-sky-300">🔵 Qualidade máxima — Gemini + Anthropic (padrão de fábrica)</div>
-        <P>Como o app já vem configurado. O <Em>Gemini</Em> cuida da voz e o <Em>Claude</Em> deixa o preparo e a análise final muito mais detalhados. Basta configurar as duas chaves.</P>
+        <div className="flex items-center gap-2 font-semibold text-sky-300">🔵 Texto e análise — OpenRouter</div>
+        <P>O <Em>OpenRouter</Em> roda o preparo e o relatório usando modelos como Claude, GPT, Gemini e DeepSeek, sem chaves diretas desses provedores.</P>
       </div>
 
       <div className="rounded-xl border border-slate-700 bg-slate-950/40 p-4 space-y-1.5">
-        <div className="flex items-center gap-2 font-semibold text-slate-200">⚪ Opcionais — OpenAI e OpenRouter</div>
-        <P><Em>OpenAI</Em> oferece uma voz alternativa, ótima em inglês. <Em>OpenRouter</Em> é uma chave única que acessa vários modelos de uma vez, sem gerenciar várias contas.</P>
+        <div className="flex items-center gap-2 font-semibold text-slate-200">⚪ Modelos por função</div>
+        <P>Em <Em>Configurações → Modelos</Em>, você escolhe qual modelo OpenRouter cada agente de texto usa. A voz continua no Gemini Live.</P>
       </div>
 
       <Callout tone="warn" title="Atenção à voz">
-        A conversa por voz funciona apenas com chave do <Em>Google Gemini</Em> ou da <Em>OpenAI</Em>. Mesmo usando o OpenRouter para o
-        resto, você vai precisar de uma dessas duas para a parte falada.
+        A conversa por voz funciona com a chave do <Em>Google Gemini</Em>. O OpenRouter fica responsável pelo preparo e pela análise.
       </Callout>
     </>
   )
@@ -429,9 +426,9 @@ function TipsSection() {
     <><Em>Use fone com microfone</Em> num ambiente silencioso.</>,
   ]
   const faqs: Array<{ q: string; a: ReactNode }> = [
-    { q: 'Falo e nada acontece / não ouço o entrevistador.', a: <>Confira: (1) você <Em>autorizou o microfone</Em> no navegador; (2) o <Em>volume</Em> está ligado; (3) a <Em>chave de voz</Em> (Gemini ou OpenAI) está preenchida. Recarregar a página costuma resolver.</> },
+    { q: 'Falo e nada acontece / não ouço o entrevistador.', a: <>Confira: (1) você <Em>autorizou o microfone</Em> no navegador; (2) o <Em>volume</Em> está ligado; (3) a <Em>chave Google Gemini</Em> está preenchida. Recarregar a página costuma resolver.</> },
     { q: 'Apareceu “chave não configurada”.', a: <>Falta colar a chave daquele provedor. Vá na engrenagem ⚙ → “Chaves de API”.</> },
-    { q: 'A entrevista por voz exige qual chave?', a: <>A do <Em>Google Gemini</Em> ou a da <Em>OpenAI</Em>. Só com OpenRouter a parte falada não funciona.</> },
+    { q: 'A entrevista por voz exige qual chave?', a: <>A do <Em>Google Gemini</Em>. O OpenRouter cuida dos agentes de texto, mas a parte falada ao vivo depende do Gemini Live.</> },
     { q: 'Quanto vou gastar?', a: <>Geralmente de centavos a poucos reais por entrevista. O valor estimado em reais aparece em tempo real no topo. Para gastar menos, use modelos econômicos.</> },
     { q: 'Pausei por muito tempo, vou perder a conversa?', a: <>Não. Ao retomar, o entrevistador lembra de tudo; em pausas longas o app reconecta sozinho preservando o contexto.</> },
     { q: 'Preciso instalar alguma coisa?', a: <>Não. O app roda no navegador. Você só precisa de internet, um microfone e as chaves configuradas.</> },

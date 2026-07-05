@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Check, KeyRound, MessageSquareText, Receipt, Sparkles, X } from 'lucide-react'
 import { CATALOG, PROVIDER_LABELS, ROLE_SUGGESTIONS, modelInfo } from '../config/models'
 import { useSettings } from '../store'
-import type { AgentRole, ApiKeys, ModelRef } from '../types'
+import type { AgentRole, ApiKeys } from '../types'
 import { Badge, Button, Card, Field, inputCls } from './ui'
 
 const ROLES: AgentRole[] = ['researcher', 'planner', 'interviewer', 'analyst']
@@ -59,16 +59,14 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
 function KeysTab() {
   const { keys, setKey } = useSettings()
   const entries: Array<{ id: keyof ApiKeys; label: string; hint: string }> = [
-    { id: 'gemini', label: 'Google Gemini', hint: 'aistudio.google.com/apikey — necessária para a entrevista por voz via Gemini Live.' },
-    { id: 'openai', label: 'OpenAI', hint: 'platform.openai.com/api-keys — necessária para GPT e voz via Realtime API.' },
-    { id: 'anthropic', label: 'Anthropic', hint: 'console.anthropic.com — recomendada para o Analista (Claude Opus 4.8 / Fable 5).' },
-    { id: 'openrouter', label: 'OpenRouter', hint: 'openrouter.ai/keys — uma chave única para acessar Claude, GPT, Gemini, DeepSeek e mais. Ideal para escolher o melhor modelo por função sem gerenciar várias contas.' },
+    { id: 'gemini', label: 'Google Gemini', hint: 'aistudio.google.com/apikey — usada apenas para a entrevista por voz ao vivo via Gemini Live.' },
+    { id: 'openrouter', label: 'OpenRouter', hint: 'openrouter.ai/keys — usada para Pesquisador, Planejador e Analista com Claude, GPT, Gemini, DeepSeek e mais.' },
   ]
   return (
     <div className="space-y-5">
       <p className="text-sm text-slate-400">
-        As chaves ficam salvas apenas no <strong>localStorage deste navegador</strong> e são enviadas
-        diretamente aos provedores. Configure apenas as dos provedores que for usar.
+        As chaves ficam salvas apenas no <strong>localStorage deste navegador</strong>. Use Google Gemini
+        para a voz ao vivo e OpenRouter para todos os agentes de texto.
       </p>
       {entries.map((e) => (
         <Field key={e.id} label={e.label} hint={e.hint}>
@@ -97,7 +95,7 @@ function ModelsTab() {
       {ROLES.map((role) => {
         const sug = ROLE_SUGGESTIONS[role]
         const current = models[role]
-        const options = CATALOG.filter((m) => (role === 'interviewer' ? m.voice : !m.voice))
+        const options = CATALOG.filter((m) => (role === 'interviewer' ? m.provider === 'gemini' && m.voice : m.provider === 'openrouter' && !m.voice))
         const isRecommended = current.provider === sug.recommended.provider && current.model === sug.recommended.model
         const info = modelInfo(current)
         return (
@@ -114,7 +112,7 @@ function ModelsTab() {
               value={`${current.provider}::${current.model}`}
               onChange={(e) => {
                 const [provider, model] = e.target.value.split('::')
-                setModel(role, { provider, model } as ModelRef)
+                setModel(role, { provider: provider === 'gemini' ? 'gemini' : 'openrouter', model })
               }}
             >
               {options.map((m) => (
@@ -192,7 +190,7 @@ function CostTab() {
         />
       </Field>
       <p className="text-xs text-slate-500">
-        Custos de texto usam os tokens reais reportados por cada API. Custos de voz são estimados
+        Custos de texto usam os tokens reportados pelo OpenRouter. Custos de voz Gemini Live são estimados
         pela duração do áudio. Preços por modelo em <code className="text-slate-400">src/config/models.ts</code>.
       </p>
     </div>

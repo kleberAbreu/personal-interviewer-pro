@@ -50,13 +50,9 @@ export default function LiveInterview({ config, brief, plan, previousCostUsd, on
     setConnected(false)
     sessionRef.current?.stop()
 
-    const apiKey = interviewerRef.provider === 'openai' ? settings.keys.openai : settings.keys.gemini
+    const apiKey = settings.keys.gemini
     if (!apiKey?.trim()) {
-      setError(
-        interviewerRef.provider === 'openai'
-          ? 'Chave OpenAI não configurada (Configurações → Chaves de API).'
-          : 'Chave Gemini não configurada (Configurações → Chaves de API).',
-      )
+      setError('Chave Google Gemini não configurada (Configurações → Chaves de API).')
       return
     }
 

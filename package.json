@@ -1,16 +1,23 @@
 {
   "name": "personal-interviewer-pro",
-  "private": true,
   "version": "0.0.0",
+  "description": "Voice-first AI interview simulator with Gemini Live and OpenRouter text agents.",
   "type": "module",
+  "bin": {
+    "interview-pro": "./bin/interview-pro.mjs"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "start": "node ./bin/interview-pro.mjs",
+    "install:local": "bash ./scripts/install.sh"
+  },
+  "engines": {
+    "node": ">=20"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.104.1",
     "@google/genai": "^2.8.0",
     "@tailwindcss/vite": "^4.3.0",
     "lucide-react": "^1.18.0",

@@ -18,16 +18,34 @@ export interface SettingsState {
   resetInterviewerTemplate: () => void
 }
 
+const TEXT_ROLES: Array<Exclude<AgentRole, 'interviewer'>> = ['researcher', 'planner', 'analyst']
+
+function normalizeModel(role: AgentRole, ref: ModelRef | undefined): ModelRef {
+  if (role === 'interviewer') {
+    return ref?.provider === 'gemini' ? ref : DEFAULT_MODELS.interviewer
+  }
+  return ref?.provider === 'openrouter' ? ref : DEFAULT_MODELS[role]
+}
+
+function normalizeModels(models: Partial<Record<AgentRole, ModelRef>> | undefined): Record<AgentRole, ModelRef> {
+  return {
+    researcher: normalizeModel('researcher', models?.researcher),
+    planner: normalizeModel('planner', models?.planner),
+    interviewer: normalizeModel('interviewer', models?.interviewer),
+    analyst: normalizeModel('analyst', models?.analyst),
+  }
+}
+
 export const useSettings = create<SettingsState>()(
   persist(
     (set) => ({
-      keys: { gemini: '', openai: '', anthropic: '', openrouter: '' },
+      keys: { gemini: '', openrouter: '' },
       models: { ...DEFAULT_MODELS },
       interviewerTemplate: DEFAULT_INTERVIEWER_TEMPLATE,
       extraInstructions: '',
       usdToBrl: 5.8,
       setKey: (provider, value) => set((s) => ({ keys: { ...s.keys, [provider]: value } })),
-      setModel: (role, ref) => set((s) => ({ models: { ...s.models, [role]: ref } })),
+      setModel: (role, ref) => set((s) => ({ models: { ...s.models, [role]: normalizeModel(role, ref) } })),
       setInterviewerTemplate: (t) => set({ interviewerTemplate: t }),
       setExtraInstructions: (t) => set({ extraInstructions: t }),
       setUsdToBrl: (v) => set({ usdToBrl: v }),
@@ -35,27 +53,26 @@ export const useSettings = create<SettingsState>()(
     }),
     {
       name: 'pip-settings-v1',
-      version: 4,
+      version: 5,
       migrate: (persisted, version) => {
-        const state = persisted as Partial<SettingsState>
-        let models = state.models ? { ...state.models } : { ...DEFAULT_MODELS }
-        // v2: padrão passou a priorizar qualidade máxima por função (Opus 4.8 / Fable 5).
-        if (version < 2) models = { ...DEFAULT_MODELS }
-        // v4: modelos Live antigos (2.0-flash-live-001, live-2.5-preview, native-audio-09-2025)
-        // foram desligados pelo Google. Texto gemini-3-pro-preview idem (09/03/2026).
-        // Troca pelos IDs atuais preservando as demais escolhas do usuário.
-        if (version < 4) {
-          const deadVoice = ['gemini-2.0-flash-live-001', 'gemini-live-2.5-flash-preview', 'gemini-2.5-flash-native-audio-preview-09-2025', 'gemini-2.0-flash-exp']
-          if (!models.interviewer || deadVoice.includes(models.interviewer.model)) {
-            models = { ...models, interviewer: DEFAULT_MODELS.interviewer }
-          }
-          for (const role of ['researcher', 'planner', 'analyst'] as const) {
-            if (models[role]?.model === 'gemini-3-pro-preview') {
-              models = { ...models, [role]: { provider: 'gemini', model: 'gemini-3.1-pro-preview' } }
-            }
-          }
+        const state = persisted as Partial<SettingsState> & {
+          keys?: Partial<ApiKeys> & { openai?: string; anthropic?: string }
         }
-        return { ...state, models }
+        let models = normalizeModels(state.models)
+
+        if (version < 5) {
+          models = { ...models, interviewer: DEFAULT_MODELS.interviewer }
+          for (const role of TEXT_ROLES) models[role] = DEFAULT_MODELS[role]
+        }
+
+        return {
+          ...state,
+          keys: {
+            gemini: state.keys?.gemini ?? '',
+            openrouter: state.keys?.openrouter ?? '',
+          },
+          models,
+        }
       },
     },
   ),

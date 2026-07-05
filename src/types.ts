@@ -1,4 +1,4 @@
-export type Provider = 'gemini' | 'openai' | 'anthropic' | 'openrouter'
+export type Provider = 'gemini' | 'openrouter'
 export type AgentRole = 'researcher' | 'planner' | 'interviewer' | 'analyst'
 export type Language = 'pt-BR' | 'en-US'
 export type Area = 'Software' | 'Produto' | 'Dados' | 'Comercial' | 'Outra'
@@ -12,8 +12,6 @@ export interface ModelRef {
 
 export interface ApiKeys {
   gemini: string
-  openai: string
-  anthropic: string
   openrouter: string
 }
 

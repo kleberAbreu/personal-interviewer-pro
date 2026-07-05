@@ -78,9 +78,9 @@ Aqui está a **única parte que exige um pouco de preparação**. Leia com calma
 
 ### Por que preciso configurar alguma coisa?
 
-O aplicativo em si não tem "cérebro" próprio. Ele se conecta a inteligências
-artificiais de grandes empresas (como o **Google**, a **OpenAI** — a mesma do
-ChatGPT — e a **Anthropic** — a do Claude) para pensar e conversar com você.
+O aplicativo em si não tem "cérebro" próprio. Ele usa o **Google Gemini** para
+a conversa por voz ao vivo e o **OpenRouter** para acessar modelos de texto de
+várias famílias (Claude, GPT, Gemini, DeepSeek e outros).
 
 Para o app poder usar essas inteligências em seu nome, você precisa de uma
 **"chave de acesso"**. Pense nela como uma **senha pessoal** que identifica a
@@ -89,43 +89,20 @@ copia a sua chave e cola no app. Só isso.
 
 > 💰 **Tem custo?** O aplicativo é gratuito. Mas essas inteligências cobram pelo
 > uso — geralmente **alguns centavos a poucos reais por entrevista**. Você paga
-> diretamente à empresa (Google, OpenAI etc.), nunca ao app. E fique tranquilo(a):
+> diretamente ao Google/OpenRouter, nunca ao app. E fique tranquilo(a):
 > o app mostra o **custo estimado em reais, em tempo real**, em todas as telas,
 > para você nunca ser pego de surpresa.
 
-### Qual caminho escolher?
+### Quais chaves preciso usar?
 
-Você não precisa de todas as chaves. Escolha o caminho que combina com você:
+O app foi simplificado para duas chaves:
 
-#### 🟢 Caminho mais fácil — só o Google Gemini (recomendado para começar)
-
-Com **uma única conta do Google Gemini**, o app já funciona inteirinho,
-**incluindo a conversa por voz**. É o jeito mais simples de dar os primeiros
-passos. Depois, se quiser, basta entrar em *Configurações → Modelos* e deixar
-todos os assistentes no Gemini.
-
-- Onde pegar a chave: **aistudio.google.com/apikey**
-
-#### 🔵 Caminho da qualidade máxima — Google Gemini + Anthropic (padrão de fábrica)
-
-É como o app já vem configurado de fábrica, pensado para o **melhor resultado
-possível**. O **Gemini** cuida da voz da entrevista, e o **Claude (Anthropic)**
-deixa o preparo e, principalmente, a **análise final** muito mais afiados e
-detalhados. Para isso, você configura duas chaves:
-
-- Google Gemini → **aistudio.google.com/apikey** (para a voz)
-- Anthropic (Claude) → **console.anthropic.com** (para a análise)
-
-#### ⚪ Caminhos opcionais — OpenAI e OpenRouter
-
-- **OpenAI** (a empresa do ChatGPT): oferece uma voz alternativa, com prosódia
-  excelente em **inglês**. Chave em **platform.openai.com/api-keys**.
-- **OpenRouter**: uma **chave única** que dá acesso a vários modelos de uma vez
-  (Claude, GPT, Gemini, DeepSeek e outros), sem precisar criar conta em cada
-  empresa. Chave em **openrouter.ai/keys**.
-  > ⚠️ Detalhe importante: a **conversa por voz** funciona apenas com chave do
-  > **Google Gemini** ou da **OpenAI**. Mesmo usando o OpenRouter para o resto,
-  > você vai precisar de uma dessas duas para a parte falada.
+- **Google Gemini** → **aistudio.google.com/apikey**
+  Usada para a entrevista por voz ao vivo, com conversa natural, interrupção
+  por fala e transcrição dos dois lados.
+- **OpenRouter** → **openrouter.ai/keys**
+  Usada para o Pesquisador, o Planejador e o Analista. Ela dá acesso a modelos
+  como Claude, GPT, Gemini, DeepSeek e outros sem configurar chaves separadas.
 
 ### Como colocar a chave no app
 
@@ -339,8 +316,8 @@ Quer dar instruções específicas ao entrevistador? Há duas formas:
 ## 9. Privacidade e segurança
 
 - 🔒 **Suas chaves ficam só no seu navegador**, neste computador. Elas não são
-  enviadas para nenhum servidor do aplicativo — vão diretamente para os provedores
-  oficiais (Google, OpenAI, Anthropic) quando o app precisa pensar ou conversar.
+  enviadas para nenhum servidor do aplicativo — vão diretamente para Google
+  Gemini e OpenRouter quando o app precisa conversar ou pensar.
 - 🗑️ Se você limpar os dados do navegador, as chaves são apagadas e você precisará
   colá-las de novo. Guarde-as em local seguro.
 - 🤝 **Nunca compartilhe suas chaves** com outras pessoas — é como compartilhar a
@@ -354,16 +331,16 @@ Quer dar instruções específicas ao entrevistador? Há duas formas:
 
 **❓ Falo e nada acontece / não ouço o entrevistador.**
 Verifique três coisas: (1) o navegador pediu e você **autorizou o microfone**;
-(2) o **volume** está ligado; (3) a **chave do provedor de voz** (Gemini ou
-OpenAI) está preenchida em *Configurações → Chaves de API*. Recarregar a página
-e começar de novo costuma resolver.
+(2) o **volume** está ligado; (3) a **chave Google Gemini** está preenchida em
+*Configurações → Chaves de API*. Recarregar a página e começar de novo costuma
+resolver.
 
 **❓ Apareceu um aviso sobre "chave não configurada".**
 Falta colar a chave daquele provedor. Vá na engrenagem ⚙ → "Chaves de API".
 
 **❓ A entrevista por voz exige qual chave?**
-Especificamente a do **Google Gemini** *ou* a da **OpenAI**. Só com OpenRouter a
-parte falada não funciona.
+Especificamente a do **Google Gemini**. O OpenRouter cuida dos agentes de texto,
+mas a parte falada ao vivo depende do Gemini Live.
 
 **❓ Quanto vou gastar?**
 Geralmente de centavos a poucos reais por entrevista, dependendo dos modelos

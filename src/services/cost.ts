@@ -11,12 +11,11 @@ export function textCostUsd(ref: ModelRef, usage: TokenUsage): number {
 
 export function voiceCostUsd(ref: ModelRef, audioInSeconds: number, audioOutSeconds: number): number {
   const info = modelInfo(ref)
-  const tps = AUDIO_TOKENS_PER_SECOND[ref.provider === 'openai' ? 'openai' : 'gemini']
   const inPerM = info?.audioInputPerM ?? 3.0
   const outPerM = info?.audioOutputPerM ?? 12.0
   return (
-    ((audioInSeconds * tps) / 1_000_000) * inPerM +
-    ((audioOutSeconds * tps) / 1_000_000) * outPerM
+    ((audioInSeconds * AUDIO_TOKENS_PER_SECOND) / 1_000_000) * inPerM +
+    ((audioOutSeconds * AUDIO_TOKENS_PER_SECOND) / 1_000_000) * outPerM
   )
 }
 
