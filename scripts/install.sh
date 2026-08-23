@@ -46,7 +46,8 @@ install_or_update_repo() {
     git -C "$INSTALL_DIR" fetch --depth=1 origin "$BRANCH"
     git -C "$INSTALL_DIR" checkout -B "$BRANCH" "origin/$BRANCH"
     git -C "$INSTALL_DIR" reset --hard "origin/$BRANCH"
-    git -C "$INSTALL_DIR" clean -fdx
+    # Keep ignored local configuration such as .env.local during upgrades.
+    git -C "$INSTALL_DIR" clean -fd
   else
     if [ "$(find "$INSTALL_DIR" -mindepth 1 -maxdepth 1 2>/dev/null | head -n 1)" ]; then
       fail "$INSTALL_DIR exists and is not empty. Set INTERVIEW_PRO_HOME to use another install directory."
@@ -63,6 +64,11 @@ build_app() {
 
   log "Building app"
   npm --prefix "$INSTALL_DIR" run build
+
+  if [ ! -f "$INSTALL_DIR/.env.local" ]; then
+    cp "$INSTALL_DIR/.env.example" "$INSTALL_DIR/.env.local"
+    log "Created $INSTALL_DIR/.env.local; add your selected voice provider key before starting an interview"
+  fi
 }
 
 install_command() {

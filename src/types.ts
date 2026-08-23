@@ -1,6 +1,9 @@
-export type Provider = 'gemini' | 'openrouter'
+export type Provider = 'gemini' | 'openai' | 'anthropic' | 'openrouter'
 export type AgentRole = 'researcher' | 'planner' | 'interviewer' | 'analyst' | 'candidate'
 export type Language = 'pt-BR' | 'en-US'
+export type UiLanguage = 'en-US' | 'pt-BR'
+export type VoiceReasoningMode = 'fast' | 'balanced' | 'deep'
+export type VoiceExpressiveness = 'standard' | 'expressive'
 
 /** Quem responde às perguntas: você (voz) ou a IA candidata (modo espectador). */
 export type CandidateMode = 'human' | 'ai'
@@ -16,7 +19,6 @@ export interface ModelRef {
 }
 
 export interface ApiKeys {
-  gemini: string
   openrouter: string
 }
 
@@ -37,6 +39,8 @@ export interface InterviewConfig {
   stressMode: boolean
   candidateMode: CandidateMode
   voiceName: string
+  voiceReasoningMode: VoiceReasoningMode
+  voiceExpressiveness: VoiceExpressiveness
   duration: 15 | 30 | 45
   weights: Weights
   jobDescription: string
@@ -120,6 +124,15 @@ export interface ReportData {
 export interface TokenUsage {
   inputTokens: number
   outputTokens: number
+}
+
+export interface VoiceUsage {
+  inputAudioTokens: number
+  outputAudioTokens: number
+  inputTextTokens: number
+  outputTextTokens: number
+  cachedInputTokens: number
+  estimated: boolean
 }
 
 export interface AgentResult<T> {

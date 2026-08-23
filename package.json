@@ -7,9 +7,13 @@
     "interview-pro": "./bin/interview-pro.mjs"
   },
   "scripts": {
-    "dev": "vite",
+    "dev": "concurrently -k -n broker,app -c cyan,magenta \"npm:dev:broker\" \"npm:dev:app\"",
+    "dev:app": "vite",
+    "dev:broker": "tsx watch server/index.ts",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "preview": "vite preview",
     "start": "node ./bin/interview-pro.mjs",
     "install:local": "bash ./scripts/install.sh"
@@ -18,9 +22,10 @@
     "node": ">=20"
   },
   "dependencies": {
-    "@google/genai": "^2.8.0",
+    "@google/genai": "^2.9.0",
     "@tailwindcss/vite": "^4.3.0",
-    "lucide-react": "^1.18.0",
+    "dotenv": "^17.4.2",
+    "lucide-react": "^1.21.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "tailwindcss": "^4.3.0",
@@ -38,6 +43,9 @@
     "globals": "^17.6.0",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.59.2",
-    "vite": "^8.0.12"
+    "concurrently": "^10.0.5",
+    "tsx": "^4.23.12",
+    "vite": "^8.0.12",
+    "vitest": "^4.1.11"
   }
 }

@@ -22,17 +22,17 @@ export async function runResearcher(
     keys,
     system: researcherPrompt(config.interviewLanguage),
     user: `INPUT DATA:
-- Área: ${config.area}${config.customArea ? ` (${config.customArea})` : ''}
-- Tipo de entrevista: ${config.interviewType}
-- Idioma da entrevista: ${config.interviewLanguage}
+- Area: ${config.area}${config.customArea ? ` (${config.customArea})` : ''}
+- Interview type: ${config.interviewType}
+- Interview language: ${config.interviewLanguage}
 - Stress Mode: ${config.stressMode}
 - JD:
 ${config.jobDescription}
-- CV (contexto):
-${config.cvText || '(não fornecido)'}`,
+- Resume (context):
+${config.cvText || '(not provided)'}`,
   })
   const data = extractJson<CompanyBrief>(result.text)
-  if (!data.company_brief) throw new Error('Falha ao gerar o Company Brief. Tente novamente.')
+  if (!data.company_brief) throw new Error('RESEARCH_BRIEF_FAILED')
   return { data, costUsd: textCostUsd(ref, result.usage) }
 }
 
@@ -47,20 +47,20 @@ export async function runPlanner(
     keys,
     system: plannerPrompt(config.interviewLanguage),
     user: `INPUT DATA:
-- Área: ${config.area}${config.customArea ? ` (${config.customArea})` : ''}
-- Tipo de entrevista: ${config.interviewType}
+- Area: ${config.area}${config.customArea ? ` (${config.customArea})` : ''}
+- Interview type: ${config.interviewType}
 - Stress Mode: ${config.stressMode}
-- DURAÇÃO SOLICITADA: ${config.duration} MINUTOS
-- Pesos de avaliação: ${JSON.stringify(config.weights)}
+- REQUESTED DURATION: ${config.duration} MINUTES
+- Scoring weights: ${JSON.stringify(config.weights)}
 - Company Brief: ${JSON.stringify(brief)}
 - JD:
 ${config.jobDescription}
 - CV:
-${config.cvText || '(não fornecido)'}`,
+${config.cvText || '(not provided)'}`,
   })
   const data = extractJson<InterviewPlan>(result.text)
   if (!data.interview_plan?.blocks?.length) {
-    throw new Error('Falha ao gerar o plano de entrevista. Tente novamente.')
+    throw new Error('INTERVIEW_PLAN_FAILED')
   }
   return { data, costUsd: textCostUsd(ref, result.usage) }
 }
@@ -105,17 +105,17 @@ export async function runAnalyst(
     keys,
     system: analystPrompt(config.feedbackLanguage),
     user: `INPUT DATA:
-- Área: ${config.area}
+- Area: ${config.area}
 - JD: ${config.jobDescription}
-- CV (APENAS CONTEXTO): ${config.cvText || '(não fornecido)'}
-- Senioridade inferida: ${JSON.stringify(plan.metadata?.seniority_inferred)}
-- Pesos: ${JSON.stringify(config.weights)}
-- TRANSCRIÇÃO (FONTE DA VERDADE):
+- Resume (CONTEXT ONLY): ${config.cvText || '(not provided)'}
+- Inferred seniority: ${JSON.stringify(plan.metadata?.seniority_inferred)}
+- Weights: ${JSON.stringify(config.weights)}
+- TRANSCRIPT (SOURCE OF TRUTH):
 ${transcript}`,
     maxTokens: 24000,
   })
   const parsed = extractJson<ReportData & { report_data?: ReportData }>(result.text)
   const data = parsed.report_data ?? parsed
-  if (!data.competency_breakdown) throw new Error('Relatório inválido gerado pelo Analista. Tente novamente.')
+  if (!data.competency_breakdown) throw new Error('REPORT_INVALID')
   return { data, costUsd: textCostUsd(ref, result.usage) }
 }

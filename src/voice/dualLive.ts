@@ -46,11 +46,13 @@ export async function startDualLiveSession(
   // Sessão da CANDIDATA: sem kickoff, sem tool de encerramento, sem microfone.
   // Ignoramos as transcrições dela (a sessão do entrevistador cobre os dois lados).
   candidate = await startGeminiLive({
-    apiKey: opts.keys.gemini,
     model: opts.interviewerRef.model,
     voiceName: opts.candidateVoice,
     systemInstruction: candidateSystem,
     language: opts.config.interviewLanguage,
+    durationMinutes: opts.config.duration,
+    reasoningMode: opts.config.voiceReasoningMode,
+    expressiveness: opts.config.voiceExpressiveness,
     captureMic: false,
     kickoff: false,
     enableEndTool: false,
@@ -61,10 +63,9 @@ export async function startDualLiveSession(
     onAudioChunk: (bytes) => {
       markSpeaking('candidate-speaking')
       // Voz da candidata vira input de áudio do entrevistador.
-      cb.onAudioSeconds(bytes.length / 2 / 24000, 0)
       interviewer?.sendAudio(resamplePcm16(bytes, 24000, 16000))
     },
-    onAudioSeconds: (_inDelta, outDelta) => cb.onAudioSeconds(0, outDelta),
+    onUsage: cb.onUsage,
     onEndRequested: () => {},
     onError: (msg) => { if (!stopped && !ended) cb.onError(`[candidata] ${msg}`) },
     onClose: () => { if (!stopped && !ended) cb.onError('A sessão de voz da candidata foi encerrada.') },
@@ -72,11 +73,13 @@ export async function startDualLiveSession(
 
   // Sessão do ENTREVISTADOR: idêntica ao modo normal, mas sem microfone.
   interviewer = await startGeminiLive({
-    apiKey: opts.keys.gemini,
     model: opts.interviewerRef.model,
     voiceName: opts.config.voiceName,
     systemInstruction: opts.systemInstruction,
     language: opts.config.interviewLanguage,
+    durationMinutes: opts.config.duration,
+    reasoningMode: opts.config.voiceReasoningMode,
+    expressiveness: opts.config.voiceExpressiveness,
     captureMic: false,
   }, {
     onOpen: () => { if (!stopped) cb.onPhase('interviewer-speaking') },
@@ -92,7 +95,7 @@ export async function startDualLiveSession(
       // Voz do entrevistador vira input de áudio da candidata.
       candidate?.sendAudio(resamplePcm16(bytes, 24000, 16000))
     },
-    onAudioSeconds: cb.onAudioSeconds,
+    onUsage: cb.onUsage,
     onEndRequested: (delaySec) => {
       ended = true
       cb.onPhase('ended')

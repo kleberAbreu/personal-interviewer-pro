@@ -1,11 +1,9 @@
-import { GoogleGenAI, Modality } from '@google/genai'
 import { b64Decode, PcmPlayer } from './audio'
 
-// Cliente Gemini TTS: sintetiza a fala da IA Candidata e toca no navegador.
-// O áudio retornado é PCM16 mono a 24kHz (mesmo formato do Gemini Live).
+// Gemini TTS player: requests candidate speech from the loopback broker and
+// plays the returned mono PCM16 audio at 24kHz.
 
 export interface TtsRequest {
-  apiKey: string
   /** Modelo TTS (ex.: gemini-2.5-flash-tts). */
   model: string
   voiceName: string
@@ -22,21 +20,15 @@ export class TtsSpeaker {
    * liberar o próximo turno depois que a candidata acabou de falar.
    */
   async speak(req: TtsRequest): Promise<number> {
-    const ai = new GoogleGenAI({ apiKey: req.apiKey })
-    const response = await ai.models.generateContent({
-      model: req.model,
-      contents: [{ role: 'user', parts: [{ text: req.text }] }],
-      config: {
-        responseModalities: [Modality.AUDIO],
-        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: req.voiceName } } },
-      },
+    const response = await fetch('/api/voice/gemini/tts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req),
     })
+    const body = await response.json().catch(() => ({})) as { audio?: string; error?: string }
+    if (!response.ok || !body.audio) throw new Error(body.error || 'Gemini TTS did not return audio.')
 
-    const data = response.candidates?.[0]?.content?.parts
-      ?.find((p) => p.inlineData?.data)?.inlineData?.data
-    if (!data) throw new Error('O Gemini TTS não retornou áudio. Verifique o modelo TTS em Configurações → Modelos.')
-
-    const bytes = b64Decode(data)
+    const bytes = b64Decode(body.audio)
     const durationSec = bytes.length / 2 / 24000
     if (this.closed) return durationSec
     this.player.playPcm16(bytes)

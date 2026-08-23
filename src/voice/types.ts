@@ -1,11 +1,13 @@
-import type { Language } from '../types'
+import type { Language, VoiceExpressiveness, VoiceReasoningMode, VoiceUsage } from '../types'
 
 export interface VoiceSessionOptions {
-  apiKey: string
   model: string
   voiceName: string
   systemInstruction: string
   language: Language
+  durationMinutes: number
+  reasoningMode: VoiceReasoningMode
+  expressiveness: VoiceExpressiveness
   /**
    * Captura o microfone do usuário (default true). No modo espectador é false:
    * a "voz" da candidata entra como texto via VoiceSession.sendText.
@@ -29,8 +31,8 @@ export interface VoiceCallbacks {
   onEndRequested: (delaySec: number) => void
   onError: (message: string) => void
   onClose: () => void
-  /** Segundos de áudio processados desde o último callback (para custo). */
-  onAudioSeconds: (inputDelta: number, outputDelta: number) => void
+  /** Token usage since the previous callback. */
+  onUsage: (delta: VoiceUsage) => void
 }
 
 export interface VoiceSession {

@@ -1,18 +1,77 @@
-import { GoogleGenAI, Modality, Type, type LiveServerMessage, type Session } from '@google/genai'
+import { GoogleGenAI, Modality, ThinkingLevel, Type, type LiveServerMessage, type Session, type UsageMetadata } from '@google/genai/web'
+import { supportsAffectiveDialog, supportsVoiceReasoning } from '../config/models'
+import type { VoiceReasoningMode, VoiceUsage } from '../types'
 import { b64Decode, b64Encode, floatTo16BitPcmBytes, MicCapture, PcmPlayer } from './audio'
+import { requestGeminiToken } from './broker'
 import type { VoiceCallbacks, VoiceSession, VoiceSessionOptions } from './types'
 
-// Sessão de voz via Gemini Live API.
-// Captura mic em 16kHz, toca resposta em 24kHz e grava transcrição
-// dos DOIS lados (inputAudioTranscription + outputAudioTranscription).
+interface ParsedGeminiMessage {
+  audioChunks: string[]
+  interviewerTranscript: string
+  candidateTranscript: string
+  interrupted: boolean
+  turnComplete: boolean
+  goAway: boolean
+  goAwayTimeLeft?: string
+  usage: VoiceUsage | null
+  endInterview: boolean
+  resumeHandle?: string
+}
+
+const GEMINI_THINKING_LEVEL: Record<VoiceReasoningMode, ThinkingLevel> = {
+  fast: ThinkingLevel.MINIMAL,
+  balanced: ThinkingLevel.LOW,
+  deep: ThinkingLevel.MEDIUM,
+}
+
+function modalityTokens(details: UsageMetadata['promptTokensDetails'], modality: string): number {
+  return details?.filter((item) => item.modality === modality).reduce((sum, item) => sum + (item.tokenCount ?? 0), 0) ?? 0
+}
+
+export function parseGeminiUsage(metadata: UsageMetadata | undefined): VoiceUsage | null {
+  if (!metadata) return null
+  const inputAudio = modalityTokens(metadata.promptTokensDetails, 'AUDIO')
+  const outputAudio = modalityTokens(metadata.responseTokensDetails, 'AUDIO')
+  const inputTotal = metadata.promptTokenCount ?? 0
+  const outputTotal = metadata.responseTokenCount ?? 0
+  return {
+    inputAudioTokens: inputAudio,
+    outputAudioTokens: outputAudio,
+    inputTextTokens: Math.max(0, modalityTokens(metadata.promptTokensDetails, 'TEXT') || inputTotal - inputAudio),
+    outputTextTokens: Math.max(0, modalityTokens(metadata.responseTokensDetails, 'TEXT') || outputTotal - outputAudio),
+    cachedInputTokens: metadata.cachedContentTokenCount ?? 0,
+    estimated: false,
+  }
+}
+
+export function parseGeminiServerMessage(message: LiveServerMessage): ParsedGeminiMessage {
+  const content = message.serverContent
+  const audioChunks = (content?.modelTurn?.parts ?? [])
+    .map((part) => part.inlineData?.data)
+    .filter((data): data is string => Boolean(data))
+  return {
+    audioChunks,
+    interviewerTranscript: content?.outputTranscription?.text ?? '',
+    candidateTranscript: content?.inputTranscription?.text ?? '',
+    interrupted: Boolean(content?.interrupted),
+    turnComplete: Boolean(content?.turnComplete),
+    goAway: Boolean(message.goAway),
+    goAwayTimeLeft: message.goAway?.timeLeft,
+    usage: parseGeminiUsage(message.usageMetadata),
+    endInterview: Boolean(message.toolCall?.functionCalls?.some((call) => call.name === 'end_interview')),
+    resumeHandle: message.sessionResumptionUpdate?.resumable
+      ? message.sessionResumptionUpdate.newHandle
+      : undefined,
+  }
+}
+
 export async function startGeminiLive(
   opts: VoiceSessionOptions,
   cb: VoiceCallbacks,
 ): Promise<VoiceSession> {
-  // v1beta cobre os modelos Live atuais (native audio 12-2025, 3.1 flash live),
-  // incluindo transcrição dos dois lados e function calling. v1alpha só é
-  // necessário para affective dialog / proactive audio, que não usamos.
-  const ai = new GoogleGenAI({ apiKey: opts.apiKey, httpOptions: { apiVersion: 'v1beta' } })
+  const credential = await requestGeminiToken(opts.model, opts.durationMinutes)
+  if (Date.parse(credential.expiresAt) <= Date.now()) throw new Error('VOICE_CREDENTIAL_EXPIRED')
+  const ai = new GoogleGenAI({ apiKey: credential.token, httpOptions: { apiVersion: 'v1beta' } })
   const mic = new MicCapture()
   const player = new PcmPlayer(24000)
   let closed = false
@@ -20,19 +79,15 @@ export async function startGeminiLive(
   let kickoffSent = false
   let reconnecting = false
   let suppressNextClose = false
+  let micStarted = false
   let session: Session | null = null
-  let sessionPromise: Promise<Session> | null = null
+  let connectingSession: Promise<Session> | null = null
   let resumeHandle: string | undefined
-  // Texto (fala da candidata no modo espectador) aguardando sessão disponível.
-  // Reenviado ao reconectar para não perder o turno numa janela de GoAway.
-  const pendingText: string[] = []
-  // Atraso curto do onTurnComplete: se um end_interview chegar logo após o
-  // turnComplete da despedida, cancelamos o turno da candidata.
-  let turnCompleteTimer: ReturnType<typeof setTimeout> | null = null
-
-  // Fragmentos de transcrição acumulados até o fim do turno
   let pendingInterviewer = ''
   let pendingCandidate = ''
+  let fallbackInputTokens = 0
+  let fallbackOutputTokens = 0
+  let turnHadUsage = false
 
   const flushTranscripts = () => {
     if (pendingInterviewer.trim()) cb.onTranscript('interviewer', pendingInterviewer.trim())
@@ -41,32 +96,27 @@ export async function startGeminiLive(
     pendingCandidate = ''
   }
 
-  const doSendText = (text: string): boolean => {
-    if (!session || reconnecting) return false
-    try {
-      session.sendClientContent({
-        turns: [{ role: 'user', parts: [{ text }] }],
-        turnComplete: true,
+  const flushFallbackUsage = () => {
+    if (!turnHadUsage && (fallbackInputTokens > 0 || fallbackOutputTokens > 0)) {
+      cb.onUsage({
+        inputAudioTokens: Math.round(fallbackInputTokens),
+        outputAudioTokens: Math.round(fallbackOutputTokens),
+        inputTextTokens: 0,
+        outputTextTokens: 0,
+        cachedInputTokens: 0,
+        estimated: true,
       })
-      return true
-    } catch (e) {
-      console.warn('[voice] sendText falhou:', e)
-      return false
     }
-  }
-
-  // Reenvia, em ordem, os textos que ficaram na fila enquanto a sessão estava
-  // indisponível (reconexão). Para no primeiro que ainda não puder ser enviado.
-  const flushPendingText = () => {
-    while (pendingText.length) {
-      if (!doSendText(pendingText[0])) break
-      pendingText.shift()
-    }
+    fallbackInputTokens = 0
+    fallbackOutputTokens = 0
+    turnHadUsage = false
   }
 
   const startMic = () => {
+    if (opts.captureMic === false || micStarted) return
+    micStarted = true
     void mic.start(16000, (chunk, durationSec) => {
-      cb.onAudioSeconds(durationSec, 0)
+      fallbackInputTokens += durationSec * 25
       let sum = 0
       for (let i = 0; i < chunk.length; i++) sum += chunk[i] * chunk[i]
       cb.onAudioLevel(Math.sqrt(sum / chunk.length))
@@ -75,213 +125,166 @@ export async function startGeminiLive(
       try {
         session.sendRealtimeInput({ audio: { data, mimeType: 'audio/pcm;rate=16000' } })
       } catch {
-        // Frame perdido durante troca de conexão ou erro transitório.
+        // A frame can be dropped while a resumable connection is being swapped.
       }
-    }).catch((e: unknown) => cb.onError(e instanceof Error ? e.message : 'Falha ao acessar o microfone'))
+    }).catch((error: unknown) => cb.onError(error instanceof Error ? error.message : 'Could not access the microphone'))
   }
 
   const reconnectAfterGoAway = (timeLeft?: string) => {
     if (closed || reconnecting || endRequested) return
     if (!resumeHandle) {
-      cb.onError('O Gemini vai encerrar a conexão e ainda não enviou um handle de retomada. Encerre e reinicie a entrevista.')
+      cb.onError('Gemini cannot resume this session because no resume handle was provided.')
       return
     }
-
-    console.info('[voice] Gemini Live GoAway recebido; reconectando antes do abort.', timeLeft ? `timeLeft=${timeLeft}` : '')
     reconnecting = true
     suppressNextClose = true
     flushTranscripts()
-
+    flushFallbackUsage()
     const oldSession = session
     session = null
-    try { oldSession?.close() } catch { /* conexão já fechando */ }
-    connectSession().catch((e: unknown) =>
-      cb.onError(e instanceof Error ? e.message : 'Falha ao retomar a sessão Gemini Live'),
-    )
+    try { oldSession?.close() } catch { /* already closing */ }
+    void connectSession().catch((error: unknown) => {
+      const suffix = timeLeft ? ` (${timeLeft})` : ''
+      cb.onError(`${error instanceof Error ? error.message : 'Could not resume Gemini Live'}${suffix}`)
+    })
   }
 
   const connectSession = async () => {
-    let connectingPromise: Promise<Session> | null = null
-    connectingPromise = ai.live.connect({
+    if (Date.parse(credential.expiresAt) <= Date.now()) throw new Error('VOICE_CREDENTIAL_EXPIRED')
+    const modelRef = { provider: 'gemini' as const, model: opts.model }
+    let currentPromise: Promise<Session> | null = null
+
+    currentPromise = ai.live.connect({
       model: opts.model,
       config: {
         responseModalities: [Modality.AUDIO],
-        speechConfig: {
-          voiceConfig: { prebuiltVoiceConfig: { voiceName: opts.voiceName } },
-          languageCode: opts.language,
-        },
+        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: opts.voiceName } } },
+        ...(supportsVoiceReasoning(modelRef)
+          ? { thinkingConfig: { thinkingLevel: GEMINI_THINKING_LEVEL[opts.reasoningMode] } }
+          : {}),
+        ...(supportsAffectiveDialog(modelRef) && opts.expressiveness === 'expressive'
+          ? { enableAffectiveDialog: true }
+          : {}),
         systemInstruction: opts.systemInstruction,
         inputAudioTranscription: {},
         outputAudioTranscription: {},
-        // 'transparent' NÃO é suportado no Developer API (só Vertex/Enterprise) —
-        // o SDK lança erro se enviado. Omitimos: a retomada por handle já funciona.
         sessionResumption: { handle: resumeHandle },
         contextWindowCompression: { slidingWindow: {} },
-        tools: opts.enableEndTool === false ? undefined : [
-          {
-            functionDeclarations: [
-              {
-                name: 'end_interview',
-                description:
-                  'Must be called immediately after the interviewer says goodbye and the interview is finished, to close the session.',
-                parameters: { type: Type.OBJECT, properties: {} },
-              },
-            ],
-          },
-        ],
+        ...(opts.enableEndTool === false ? {} : {
+          tools: [{
+            functionDeclarations: [{
+              name: 'end_interview',
+              description: 'Call immediately after the final goodbye when the interview is complete.',
+              parameters: { type: Type.OBJECT, properties: {} },
+            }],
+          }],
+        }),
       },
       callbacks: {
         onopen: () => {
           if (closed) return
-          console.info('[voice] Gemini Live conectado:', opts.model, resumeHandle ? '(resumido)' : '')
           cb.onOpen()
-
-          if (!kickoffSent) {
+          if (opts.kickoff !== false && !kickoffSent) {
             kickoffSent = true
-            // Kickoff: pede ao entrevistador que comece (Gemini não fala sem input).
-            // A sessão da candidata (dual-live) não usa kickoff: responde ao áudio recebido.
-            if (opts.kickoff !== false) {
-              connectingPromise
-                ?.then((s) => s.sendClientContent({
-                  turns: [{
-                    role: 'user',
-                    parts: [{ text: opts.language === 'en-US' ? '(The candidate has joined. Greet them and start the interview.)' : '(O candidato entrou. Cumprimente-o e inicie a entrevista.)' }],
-                  }],
-                  turnComplete: true,
-                }))
-                .catch((e: unknown) => console.warn('[voice] kickoff falhou:', e))
-            }
-
-            // Modo espectador: sem microfone — a candidata entra por sendText/sendAudio.
-            if (opts.captureMic !== false) startMic()
+            currentPromise
+              ?.then((activeSession) => activeSession.sendRealtimeInput({
+                text: opts.language === 'en-US'
+                  ? 'The candidate has joined. Greet them and start the interview.'
+                  : 'O candidato entrou. Cumprimente-o e inicie a entrevista.',
+              }))
+              .catch(() => cb.onError('Gemini could not start the interview.'))
           }
+          startMic()
         },
         onmessage: (message: LiveServerMessage) => {
           if (closed) return
-
-          const resumptionUpdate = message.sessionResumptionUpdate
-          if (resumptionUpdate?.resumable && resumptionUpdate.newHandle) {
-            resumeHandle = resumptionUpdate.newHandle
-          }
-
-          if (message.goAway) {
-            reconnectAfterGoAway(message.goAway.timeLeft)
+          const parsed = parseGeminiServerMessage(message)
+          if (parsed.resumeHandle) resumeHandle = parsed.resumeHandle
+          if (parsed.goAway) {
+            reconnectAfterGoAway(parsed.goAwayTimeLeft)
             return
           }
 
-          const content = message.serverContent
-
-          // Áudio do entrevistador
-          const inline = content?.modelTurn?.parts?.find((p) => p.inlineData?.data)?.inlineData
-          if (inline?.data) {
-            const bytes = b64Decode(inline.data)
-            cb.onAudioSeconds(0, bytes.length / 2 / 24000)
+          for (const encodedAudio of parsed.audioChunks) {
+            const bytes = b64Decode(encodedAudio)
+            fallbackOutputTokens += (bytes.length / 2 / 24000) * 25
             player.playPcm16(bytes)
             cb.onAudioChunk?.(bytes)
           }
-
-          // Transcrições (entrevistador = output, candidato = input)
-          if (content?.outputTranscription?.text) pendingInterviewer += content.outputTranscription.text
-          if (content?.inputTranscription?.text) pendingCandidate += content.inputTranscription.text
-          if (content?.turnComplete) {
-            flushTranscripts()
-            if (!endRequested && cb.onTurnComplete) {
-              // Atraso curto: dá tempo de um end_interview (despedida) chegar e
-              // cancelar este turno, evitando uma resposta desnecessária da candidata.
-              if (turnCompleteTimer) clearTimeout(turnCompleteTimer)
-              turnCompleteTimer = setTimeout(() => {
-                turnCompleteTimer = null
-                if (!closed && !endRequested) cb.onTurnComplete?.()
-              }, 250)
-            }
+          pendingInterviewer += parsed.interviewerTranscript
+          pendingCandidate += parsed.candidateTranscript
+          if (parsed.usage) {
+            turnHadUsage = true
+            cb.onUsage(parsed.usage)
           }
-
-          // Barge-in: usuário interrompeu o modelo
-          if (content?.interrupted) player.interrupt()
-
-          // Tool call de encerramento
-          if (message.toolCall?.functionCalls?.some((c) => c.name === 'end_interview') && !endRequested) {
-            endRequested = true
-            if (turnCompleteTimer) { clearTimeout(turnCompleteTimer); turnCompleteTimer = null }
+          if (parsed.interrupted) player.interrupt()
+          if (parsed.turnComplete) {
             flushTranscripts()
+            flushFallbackUsage()
+            cb.onTurnComplete?.()
+          }
+          if (parsed.endInterview && !endRequested) {
+            endRequested = true
+            flushTranscripts()
+            flushFallbackUsage()
             cb.onEndRequested(player.remainingSeconds())
           }
         },
-        onerror: (e: ErrorEvent) => {
-          console.error('[voice] Gemini Live erro:', e)
-          if (!closed && !reconnecting) cb.onError(e.message || 'Erro na conexão Gemini Live (veja o console do navegador)')
+        onerror: (event: ErrorEvent) => {
+          if (!closed && !reconnecting) cb.onError(event.message || 'Gemini Live connection error.')
         },
-        onclose: (e: CloseEvent) => {
-          console.warn('[voice] Gemini Live fechou · código', e?.code, '· motivo:', e?.reason || '(vazio)')
+        onclose: (event: CloseEvent) => {
           if (suppressNextClose) {
             suppressNextClose = false
             return
           }
-
-          // Para o microfone imediatamente: sem isto, cada frame tenta enviar num
-          // socket morto e gera o loop "WebSocket is already in CLOSING or CLOSED".
           mic.stop()
           session = null
           if (!closed) {
-            if (!endRequested && e?.reason) {
-              cb.onError(`O Gemini encerrou a sessão: ${e.reason}${e.code ? ` (código ${e.code})` : ''}`)
-            }
+            if (!endRequested && event.reason) cb.onError(`Gemini closed the session (${event.code}).`)
             cb.onClose()
           }
         },
       },
     })
 
-    sessionPromise = connectingPromise
-    const nextSession = await connectingPromise
+    connectingSession = currentPromise
+    const nextSession = await currentPromise
     if (closed) {
-      try { nextSession.close() } catch { /* já fechada */ }
+      try { nextSession.close() } catch { /* already closed */ }
       return
     }
     session = nextSession
     reconnecting = false
-    // Sessão (re)disponível: escoa qualquer fala da candidata que ficou na fila.
-    flushPendingText()
   }
 
-  connectSession().catch((e: unknown) =>
-    cb.onError(e instanceof Error ? e.message : 'Falha ao conectar ao Gemini Live'),
-  )
+  await connectSession()
 
   return {
     setMuted: (muted) => { mic.muted = muted },
-    sendText: (text) => {
-      if (!doSendText(text)) {
-        pendingText.push(text)
-        console.warn('[voice] sendText adiado: sessão indisponível; será reenviado ao reconectar')
-      }
-    },
-    sendAudio: (pcm16kBytes) => {
-      if (!session || reconnecting) return
-      try {
-        session.sendRealtimeInput({
-          audio: { data: b64Encode(pcm16kBytes), mimeType: 'audio/pcm;rate=16000' },
-        })
-      } catch {
-        // Frame perdido durante troca de conexão ou erro transitório.
-      }
-    },
     setPaused: (paused) => {
-      // Não envia áudio do mic e suspende a reprodução; a sessão WebSocket segue
-      // viva (contexto preservado). Se cair na pausa, a retomada por handle reconecta.
       mic.muted = paused
       if (paused) player.pause()
       else player.resume()
     },
+    sendText: (text) => {
+      session?.sendRealtimeInput({ text })
+    },
+    sendAudio: (pcm16kBytes) => {
+      fallbackInputTokens += (pcm16kBytes.length / 2 / 16000) * 25
+      session?.sendRealtimeInput({
+        audio: { data: b64Encode(pcm16kBytes), mimeType: 'audio/pcm;rate=16000' },
+      })
+    },
     stop: () => {
       closed = true
-      if (turnCompleteTimer) { clearTimeout(turnCompleteTimer); turnCompleteTimer = null }
       flushTranscripts()
+      flushFallbackUsage()
       mic.stop()
       player.close()
-      try { session?.close() } catch { /* já fechado */ }
+      try { session?.close() } catch { /* already closed */ }
       session = null
-      sessionPromise?.then((s) => s.close()).catch(() => {})
+      connectingSession?.then((activeSession) => activeSession.close()).catch(() => {})
     },
   }
 }

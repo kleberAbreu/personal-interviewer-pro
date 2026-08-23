@@ -35,7 +35,7 @@ export async function runCandidateTurn(
 ): Promise<AgentResult<string>> {
   const messages = transcriptToChatTurns(transcript)
   if (messages.length === 0 || messages[messages.length - 1].role !== 'user') {
-    throw new Error('A candidata só responde após uma fala do entrevistador.')
+    throw new Error('CANDIDATE_NO_INTERVIEWER_TURN')
   }
 
   const result = await chatText({
@@ -54,6 +54,6 @@ export async function runCandidateTurn(
   })
 
   const text = result.text.trim()
-  if (!text) throw new Error('A IA Candidata devolveu uma resposta vazia. Tente novamente.')
+  if (!text) throw new Error('CANDIDATE_EMPTY_RESPONSE')
   return { data: text, costUsd: textCostUsd(ref, result.usage) }
 }

@@ -1,5 +1,5 @@
 import { AUDIO_TOKENS_PER_SECOND, modelInfo } from '../config/models'
-import type { ModelRef, TokenUsage } from '../types'
+import type { ModelRef, TokenUsage, VoiceUsage } from '../types'
 
 export function textCostUsd(ref: ModelRef, usage: TokenUsage): number {
   const info = modelInfo(ref)
@@ -9,13 +9,39 @@ export function textCostUsd(ref: ModelRef, usage: TokenUsage): number {
   return (usage.inputTokens / 1_000_000) * inPerM + (usage.outputTokens / 1_000_000) * outPerM
 }
 
-export function voiceCostUsd(ref: ModelRef, audioInSeconds: number, audioOutSeconds: number): number {
+export function emptyVoiceUsage(): VoiceUsage {
+  return {
+    inputAudioTokens: 0,
+    outputAudioTokens: 0,
+    inputTextTokens: 0,
+    outputTextTokens: 0,
+    cachedInputTokens: 0,
+    estimated: false,
+  }
+}
+
+export function addVoiceUsage(current: VoiceUsage, delta: VoiceUsage): VoiceUsage {
+  return {
+    inputAudioTokens: current.inputAudioTokens + delta.inputAudioTokens,
+    outputAudioTokens: current.outputAudioTokens + delta.outputAudioTokens,
+    inputTextTokens: current.inputTextTokens + delta.inputTextTokens,
+    outputTextTokens: current.outputTextTokens + delta.outputTextTokens,
+    cachedInputTokens: current.cachedInputTokens + delta.cachedInputTokens,
+    estimated: current.estimated || delta.estimated,
+  }
+}
+
+export function voiceCostUsd(ref: ModelRef, usage: VoiceUsage): number {
   const info = modelInfo(ref)
+  const textInputPerM = info?.inputPerM ?? 3.0
+  const textOutputPerM = info?.outputPerM ?? 15.0
   const inPerM = info?.audioInputPerM ?? 3.0
   const outPerM = info?.audioOutputPerM ?? 12.0
   return (
-    ((audioInSeconds * AUDIO_TOKENS_PER_SECOND) / 1_000_000) * inPerM +
-    ((audioOutSeconds * AUDIO_TOKENS_PER_SECOND) / 1_000_000) * outPerM
+    (usage.inputTextTokens / 1_000_000) * textInputPerM +
+    (usage.outputTextTokens / 1_000_000) * textOutputPerM +
+    (usage.inputAudioTokens / 1_000_000) * inPerM +
+    (usage.outputAudioTokens / 1_000_000) * outPerM
   )
 }
 

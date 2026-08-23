@@ -3,6 +3,7 @@ import {
   AlertTriangle, BookOpenCheck, CalendarCheck2, ChevronDown, FileText,
   Lightbulb, MessageCircleQuestion, Printer, RotateCcw, Sparkles, TrendingDown, TrendingUp,
 } from 'lucide-react'
+import { evidenceLabels, reportCopy } from '../i18n'
 import { formatBrl } from '../services/cost'
 import { useSettings } from '../store'
 import type { ReportData, TranscriptEntry } from '../types'
@@ -12,12 +13,11 @@ interface Props {
   data: ReportData
   transcript: TranscriptEntry[]
   totalCostUsd: number
-  /** Presente quando quem respondeu foi a IA Candidata (modo espectador). */
   candidateLabel?: string
   onRestart: () => void
 }
 
-function ScoreRing({ score }: { score: number | null }) {
+function ScoreRing({ score, outOf }: { score: number | null; outOf: string }) {
   const pct = score == null ? 0 : (score / 5) * 100
   const r = 54
   const c = 2 * Math.PI * r
@@ -33,7 +33,7 @@ function ScoreRing({ score }: { score: number | null }) {
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="text-4xl font-bold" style={{ color }}>{score?.toFixed(1) ?? '—'}</span>
-        <span className="text-xs text-slate-500">de 5.0</span>
+        <span className="text-xs text-slate-500">{outOf}</span>
       </div>
     </div>
   )
@@ -50,7 +50,8 @@ function ScoreBar({ score }: { score: number | null }) {
 }
 
 export default function ReportView({ data, transcript, totalCostUsd, candidateLabel, onRestart }: Props) {
-  const usdToBrl = useSettings((s) => s.usdToBrl)
+  const { usdToBrl, uiLanguage } = useSettings()
+  const t = reportCopy[uiLanguage]
   const [showTranscript, setShowTranscript] = useState(false)
   const [openQuestion, setOpenQuestion] = useState<number | null>(null)
   const es = data.executive_summary
@@ -59,16 +60,13 @@ export default function ReportView({ data, transcript, totalCostUsd, candidateLa
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-16">
       <div className="flex flex-wrap items-center justify-between gap-3 no-print">
-        <div className="flex items-center gap-3">
-          <h2 className="text-2xl font-bold">Relatório de Performance</h2>
-          {candidateLabel && <Badge tone="green">🤖 Candidato: {candidateLabel}</Badge>}
-        </div>
+        <h2 className="text-2xl font-bold">{t.title}</h2>
         <div className="flex gap-2">
           <Button variant="secondary" onClick={() => window.print()}>
-            <span className="flex items-center gap-2"><Printer className="w-4 h-4" /> Imprimir / PDF</span>
+            <span className="flex items-center gap-2"><Printer className="w-4 h-4" /> {t.print}</span>
           </Button>
           <Button onClick={onRestart}>
-            <span className="flex items-center gap-2"><RotateCcw className="w-4 h-4" /> Nova entrevista</span>
+            <span className="flex items-center gap-2"><RotateCcw className="w-4 h-4" /> {t.newInterview}</span>
           </Button>
         </div>
       </div>
@@ -76,18 +74,18 @@ export default function ReportView({ data, transcript, totalCostUsd, candidateLa
       {/* Resumo executivo */}
       <Card className="p-6">
         <div className="flex flex-col md:flex-row gap-6 items-center">
-          <ScoreRing score={es.overall_weighted_score_1_to_5} />
+          <ScoreRing score={es.overall_weighted_score_1_to_5} outOf={t.outOf} />
           <div className="flex-1 space-y-3 text-center md:text-left">
             <div className="flex flex-wrap gap-2 justify-center md:justify-start">
               <Badge tone="indigo">{data.meta.role_title}</Badge>
-              <Badge tone="slate">Senioridade: {data.meta.seniority_expected.level}</Badge>
+              <Badge tone="slate">{t.seniority} {data.meta.seniority_expected.level}</Badge>
               <Badge tone={data.meta.evidence_status === 'sufficient' ? 'green' : data.meta.evidence_status === 'partial' ? 'amber' : 'red'}>
-                Evidências: {data.meta.evidence_status}
+                {t.evidence} {evidenceLabels[uiLanguage][data.meta.evidence_status]}
               </Badge>
             </div>
             <p className="text-slate-300 leading-relaxed">{es.summary_text}</p>
             <p className="text-xs text-slate-500">
-              Custo total da sessão: {formatBrl(totalCostUsd, usdToBrl)} (est.)
+              {t.totalCost} {formatBrl(totalCostUsd, usdToBrl)} {t.estimated}
             </p>
           </div>
         </div>
@@ -97,7 +95,7 @@ export default function ReportView({ data, transcript, totalCostUsd, candidateLa
         <Card className="p-5 border-amber-500/40 bg-amber-950/20">
           <div className="flex items-center gap-3 text-amber-300 text-sm">
             <AlertTriangle className="w-5 h-5 shrink-0" />
-            Não houve material suficiente na transcrição para uma avaliação confiável. Tente uma sessão mais longa.
+            {t.insufficient}
           </div>
         </Card>
       )}
@@ -105,9 +103,9 @@ export default function ReportView({ data, transcript, totalCostUsd, candidateLa
       {/* Forças e gaps */}
       <div className="grid md:grid-cols-2 gap-6">
         <Card className="p-5">
-          <SectionTitle icon={<TrendingUp className="w-4 h-4 text-emerald-400" />}>Pontos fortes</SectionTitle>
+          <SectionTitle icon={<TrendingUp className="w-4 h-4 text-emerald-400" />}>{t.strengths}</SectionTitle>
           <div className="space-y-4">
-            {es.top_strengths.length === 0 && <p className="text-sm text-slate-600 italic">Sem evidências suficientes.</p>}
+            {es.top_strengths.length === 0 && <p className="text-sm text-slate-600 italic">{t.noEvidence}</p>}
             {es.top_strengths.map((s, i) => (
               <div key={i} className="border-l-2 border-emerald-500/50 pl-3">
                 <div className="font-semibold text-emerald-200 text-sm">{s.title}</div>
@@ -118,9 +116,9 @@ export default function ReportView({ data, transcript, totalCostUsd, candidateLa
           </div>
         </Card>
         <Card className="p-5">
-          <SectionTitle icon={<TrendingDown className="w-4 h-4 text-red-400" />}>Gaps principais</SectionTitle>
+          <SectionTitle icon={<TrendingDown className="w-4 h-4 text-red-400" />}>{t.gaps}</SectionTitle>
           <div className="space-y-4">
-            {es.top_gaps.length === 0 && <p className="text-sm text-slate-600 italic">Sem evidências suficientes.</p>}
+            {es.top_gaps.length === 0 && <p className="text-sm text-slate-600 italic">{t.noEvidence}</p>}
             {es.top_gaps.map((g, i) => (
               <div key={i} className="border-l-2 border-red-500/50 pl-3">
                 <div className="font-semibold text-red-200 text-sm">{g.title}</div>
@@ -135,7 +133,7 @@ export default function ReportView({ data, transcript, totalCostUsd, candidateLa
       {/* Momentos-chave */}
       {data.key_moments.length > 0 && (
         <Card className="p-5">
-          <SectionTitle icon={<Sparkles className="w-4 h-4 text-indigo-400" />}>Momentos-chave</SectionTitle>
+          <SectionTitle icon={<Sparkles className="w-4 h-4 text-indigo-400" />}>{t.keyMoments}</SectionTitle>
           <div className="space-y-5">
             {data.key_moments.map((m, i) => (
               <div key={i} className="relative pl-6">
@@ -143,8 +141,8 @@ export default function ReportView({ data, transcript, totalCostUsd, candidateLa
                 {i < data.key_moments.length - 1 && <div className="absolute left-[5px] top-5 bottom-[-14px] w-0.5 bg-slate-800" />}
                 <div className="text-xs text-slate-500">{m.timestamp_context}</div>
                 <div className="text-sm font-semibold text-slate-200 mt-0.5">{m.situation}</div>
-                <p className="text-xs text-slate-400 mt-1"><strong className="text-slate-300">Ação:</strong> {m.candidate_action}</p>
-                <p className="text-xs text-slate-400 mt-0.5"><strong className="text-slate-300">Impacto:</strong> {m.impact_analysis}</p>
+                <p className="text-xs text-slate-400 mt-1"><strong className="text-slate-300">{t.action}</strong> {m.candidate_action}</p>
+                <p className="text-xs text-slate-400 mt-0.5"><strong className="text-slate-300">{t.impact}</strong> {m.impact_analysis}</p>
                 {m.transcript_quote && <p className="text-xs text-slate-500 italic mt-1">“{m.transcript_quote}”</p>}
               </div>
             ))}
@@ -155,7 +153,7 @@ export default function ReportView({ data, transcript, totalCostUsd, candidateLa
       {/* Competências */}
       {data.competency_breakdown.length > 0 && (
         <Card className="p-5">
-          <SectionTitle icon={<BookOpenCheck className="w-4 h-4 text-indigo-400" />}>Competências</SectionTitle>
+          <SectionTitle icon={<BookOpenCheck className="w-4 h-4 text-indigo-400" />}>{t.competencies}</SectionTitle>
           <div className="space-y-5">
             {data.competency_breakdown.map((c, i) => (
               <div key={i}>
@@ -181,7 +179,7 @@ export default function ReportView({ data, transcript, totalCostUsd, candidateLa
       {/* Feedback por pergunta */}
       {data.question_level_feedback.length > 0 && (
         <Card className="p-5">
-          <SectionTitle icon={<MessageCircleQuestion className="w-4 h-4 text-indigo-400" />}>Feedback por pergunta</SectionTitle>
+          <SectionTitle icon={<MessageCircleQuestion className="w-4 h-4 text-indigo-400" />}>{t.questionFeedback}</SectionTitle>
           <div className="divide-y divide-slate-800">
             {data.question_level_feedback.map((q, i) => (
               <div key={i} className="py-3">
@@ -202,7 +200,7 @@ export default function ReportView({ data, transcript, totalCostUsd, candidateLa
                     {q.example_improved_answer && (
                       <div className="p-3 rounded-xl bg-indigo-500/5 border border-indigo-500/20 text-indigo-200/90">
                         <div className="flex items-center gap-1.5 font-semibold mb-1">
-                          <Lightbulb className="w-3.5 h-3.5" /> Resposta melhorada
+                          <Lightbulb className="w-3.5 h-3.5" /> {t.improvedAnswer}
                         </div>
                         {q.example_improved_answer}
                       </div>
@@ -218,11 +216,11 @@ export default function ReportView({ data, transcript, totalCostUsd, candidateLa
       {/* Plano de treino */}
       {data.two_week_training_plan.weekly_goals.length > 0 && (
         <Card className="p-5">
-          <SectionTitle icon={<CalendarCheck2 className="w-4 h-4 text-emerald-400" />}>Plano de treino — 2 semanas</SectionTitle>
+          <SectionTitle icon={<CalendarCheck2 className="w-4 h-4 text-emerald-400" />}>{t.trainingPlan}</SectionTitle>
           <div className="grid md:grid-cols-2 gap-4">
             {data.two_week_training_plan.weekly_goals.map((w) => (
               <div key={w.week} className="p-4 rounded-xl bg-slate-950/50 border border-slate-800">
-                <div className="font-semibold text-sm text-indigo-300 mb-2">Semana {w.week}</div>
+                <div className="font-semibold text-sm text-indigo-300 mb-2">{t.week} {w.week}</div>
                 <ul className="space-y-1.5 text-xs text-slate-300">
                   {w.goals.map((g, j) => <li key={j}>• {g}</li>)}
                 </ul>
@@ -238,14 +236,14 @@ export default function ReportView({ data, transcript, totalCostUsd, candidateLa
           className="w-full flex items-center justify-between text-sm font-semibold text-slate-300"
           onClick={() => setShowTranscript(!showTranscript)}
         >
-          <span className="flex items-center gap-2"><FileText className="w-4 h-4" /> Transcrição completa ({transcript.length} turnos)</span>
+          <span className="flex items-center gap-2"><FileText className="w-4 h-4" /> {t.transcript} ({transcript.length} {t.turns})</span>
           <ChevronDown className={`w-4 h-4 transition-transform ${showTranscript ? 'rotate-180' : ''}`} />
         </button>
         {showTranscript && (
           <div className="mt-4 max-h-80 overflow-y-auto space-y-2 text-xs font-mono">
-            {transcript.map((t, i) => (
-              <p key={i} className={t.role === 'candidate' ? 'text-emerald-300/90' : 'text-slate-400'}>
-                <strong>{t.role === 'candidate' ? 'Você' : 'Entrevistador'}:</strong> {t.text}
+            {transcript.map((entry, i) => (
+              <p key={i} className={entry.role === 'candidate' ? 'text-emerald-300/90' : 'text-slate-400'}>
+                <strong>{entry.role === 'candidate' ? candidateLabel ?? reportCopy[uiLanguage].you : reportCopy[uiLanguage].interviewer}:</strong> {entry.text}
               </p>
             ))}
           </div>

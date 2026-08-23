@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { createReadStream } from 'node:fs'
 import { access, readFile, stat } from 'node:fs/promises'
-import { createServer } from 'node:http'
+import { createServer, request as httpRequest } from 'node:http'
 import { dirname, extname, isAbsolute, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawn } from 'node:child_process'
@@ -69,6 +69,9 @@ function parseArgs(argv) {
   if (!Number.isInteger(options.port) || options.port < 1 || options.port > 65535) {
     throw new Error('Port must be a number between 1 and 65535.')
   }
+  if (!['127.0.0.1', 'localhost', '::1'].includes(options.host)) {
+    throw new Error('The local app can bind only to a loopback host.')
+  }
 
   return options
 }
@@ -129,8 +132,27 @@ function writeError(res, status, message) {
   res.end(message)
 }
 
-function createAppServer() {
+function proxyApi(req, res, brokerPort) {
+  const proxy = httpRequest({
+    hostname: '127.0.0.1',
+    port: brokerPort,
+    path: req.url,
+    method: req.method,
+    headers: req.headers,
+  }, (brokerResponse) => {
+    res.writeHead(brokerResponse.statusCode || 502, brokerResponse.headers)
+    brokerResponse.pipe(res)
+  })
+  proxy.on('error', () => writeError(res, 502, 'Local voice broker unavailable'))
+  req.pipe(proxy)
+}
+
+function createAppServer(brokerPort) {
   return createServer(async (req, res) => {
+    if ((req.url || '').startsWith('/api/')) {
+      proxyApi(req, res, brokerPort)
+      return
+    }
     if (req.method !== 'GET' && req.method !== 'HEAD') {
       writeError(res, 405, 'Method not allowed')
       return
@@ -177,11 +199,11 @@ function listen(server, host, port) {
   })
 }
 
-async function startServer(host, preferredPort) {
+async function startServer(host, preferredPort, brokerPort) {
   let lastError
 
   for (let port = preferredPort; port < preferredPort + 25 && port <= 65535; port += 1) {
-    const server = createAppServer()
+    const server = createAppServer(brokerPort)
 
     try {
       await listen(server, host, port)
@@ -195,6 +217,19 @@ async function startServer(host, preferredPort) {
   }
 
   throw lastError || new Error('Could not start the local server.')
+}
+
+async function startBroker() {
+  const brokerPort = Number(process.env.VOICE_BROKER_PORT || 8787)
+  const tsxPath = resolve(projectRoot, 'node_modules', '.bin', process.platform === 'win32' ? 'tsx.cmd' : 'tsx')
+  const child = spawn(tsxPath, ['server/index.ts'], {
+    cwd: projectRoot,
+    env: { ...process.env, VOICE_BROKER_PORT: String(brokerPort) },
+    stdio: 'inherit',
+  })
+  await new Promise((resolveWait) => setTimeout(resolveWait, 400))
+  if (child.exitCode !== null) throw new Error('The local voice broker could not start.')
+  return { child, brokerPort }
 }
 
 function openBrowser(url) {
@@ -230,7 +265,15 @@ async function main() {
   }
 
   await assertBuildExists()
-  const { server, port } = await startServer(options.host, options.port)
+  const { child: broker, brokerPort } = await startBroker()
+  let serverInfo
+  try {
+    serverInfo = await startServer(options.host, options.port, brokerPort)
+  } catch (error) {
+    broker.kill('SIGTERM')
+    throw error
+  }
+  const { server, port } = serverInfo
   const url = `http://${options.host}:${port}`
 
   console.log(`Personal Interviewer Pro is running at ${url}`)
@@ -241,6 +284,7 @@ async function main() {
   }
 
   const shutdown = () => {
+    broker.kill('SIGTERM')
     server.close(() => process.exit(0))
   }
 

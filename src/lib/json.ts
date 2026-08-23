@@ -1,5 +1,5 @@
-// Extração robusta de JSON da resposta de qualquer provedor:
-// remove cercas markdown, localiza o objeto e tenta reparar truncamentos.
+// Robust JSON extraction from any provider response:
+// removes markdown fences, locates the object, and attempts truncated-output repair.
 
 function tryRepair(str: string): string {
   const cleaned = str.trim()
@@ -18,10 +18,10 @@ function tryRepair(str: string): string {
 }
 
 export function extractJson<T>(raw: string): T {
-  if (!raw) throw new Error('Resposta vazia do modelo')
+  if (!raw) throw new Error('MODEL_EMPTY_RESPONSE')
   let cleaned = raw.trim()
 
-  // Remove cercas ```json ... ```
+  // Remove ```json ... ``` fences.
   if (cleaned.startsWith('```')) {
     const firstNewline = cleaned.indexOf('\n')
     const lastFence = cleaned.lastIndexOf('```')
@@ -32,11 +32,11 @@ export function extractJson<T>(raw: string): T {
     }
   }
 
-  // Trunca floats com precisão patológica (ex: 1.000000000...)
+  // Truncate pathological float precision (e.g. 1.000000000...).
   cleaned = cleaned.replace(/(\d+\.\d{3})\d+/g, '$1')
 
   const first = cleaned.indexOf('{')
-  if (first === -1) throw new Error('Nenhum JSON encontrado na resposta')
+  if (first === -1) throw new Error('MODEL_JSON_NOT_FOUND')
   const last = cleaned.lastIndexOf('}')
   if (last > first) {
     const candidate = cleaned.substring(first, last + 1)

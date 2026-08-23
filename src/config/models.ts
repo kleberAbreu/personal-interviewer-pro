@@ -1,4 +1,4 @@
-import type { AgentRole, CandidateEngine, ModelRef, Provider } from '../types'
+import type { AgentRole, CandidateEngine, ModelRef, Provider, VoiceReasoningMode } from '../types'
 
 // Precos em USD por 1M de tokens. Modelos de texto sao roteados via OpenRouter;
 // modelos Gemini abaixo sao apenas para entrevista de voz realtime.
@@ -11,8 +11,28 @@ export interface ModelInfo {
   audioInputPerM?: number
   audioOutputPerM?: number
   voice?: boolean
+  maturity?: 'ga' | 'preview'
+  contextWindow?: number
+  transport?: 'webrtc' | 'websocket'
+  voices?: readonly string[]
+  defaultVoice?: string
+  preset?: 'default' | 'expressive' | 'premium' | 'economy' | 'voice-quality'
+  reasoning?: boolean
+  affectiveDialog?: boolean
   note?: string
 }
+
+export const GEMINI_VOICES = [
+  'Zephyr', 'Puck', 'Charon', 'Kore', 'Fenrir', 'Leda', 'Orus', 'Aoede',
+  'Callirrhoe', 'Autonoe', 'Enceladus', 'Iapetus', 'Umbriel', 'Algieba',
+  'Despina', 'Erinome', 'Algenib', 'Rasalgethi', 'Laomedeia', 'Achernar',
+  'Alnilam', 'Schedar', 'Gacrux', 'Pulcherrima', 'Achird', 'Zubenelgenubi',
+  'Vindemiatrix', 'Sadachbia', 'Sadaltager', 'Sulafat',
+] as const
+
+export const OPENAI_VOICES = [
+  'cedar', 'marin', 'alloy', 'ash', 'ballad', 'coral', 'echo', 'sage', 'shimmer', 'verse',
+] as const
 
 export const CATALOG: ModelInfo[] = [
   {
@@ -24,7 +44,15 @@ export const CATALOG: ModelInfo[] = [
     audioInputPerM: 3.0,
     audioOutputPerM: 12.0,
     voice: true,
-    note: 'Voz nativa via Gemini Live API. Recomendado para pt-BR, barge-in e transcricao dos dois lados.',
+    maturity: 'preview',
+    contextWindow: 128_000,
+    transport: 'websocket',
+    voices: GEMINI_VOICES,
+    defaultVoice: 'Kore',
+    preset: 'expressive',
+    reasoning: false,
+    affectiveDialog: true,
+    note: 'Modo Expressive: dialogo afetivo opcional, transcricao bilateral e tools via Gemini Live.',
   },
   {
     provider: 'gemini',
@@ -35,7 +63,72 @@ export const CATALOG: ModelInfo[] = [
     audioInputPerM: 3.0,
     audioOutputPerM: 12.0,
     voice: true,
-    note: 'Fallback Gemini Live mais novo. Use se o Native Audio padrao estiver indisponivel.',
+    maturity: 'preview',
+    contextWindow: 128_000,
+    transport: 'websocket',
+    voices: GEMINI_VOICES,
+    defaultVoice: 'Kore',
+    preset: 'default',
+    reasoning: true,
+    affectiveDialog: false,
+    note: 'Padrao adaptativo: Live mais novo, contexto de 128k e raciocinio configuravel.',
+  },
+  {
+    provider: 'openai',
+    id: 'gpt-realtime-2.1',
+    label: 'GPT Realtime 2.1',
+    inputPerM: 4.0,
+    outputPerM: 24.0,
+    audioInputPerM: 32.0,
+    audioOutputPerM: 64.0,
+    voice: true,
+    maturity: 'ga',
+    contextWindow: 128_000,
+    transport: 'webrtc',
+    voices: OPENAI_VOICES,
+    defaultVoice: 'marin',
+    preset: 'premium',
+    reasoning: true,
+    affectiveDialog: false,
+    note: 'Modo Premium: raciocinio, tool use e melhor tratamento de ruido, silencio e interrupcoes.',
+  },
+  {
+    provider: 'openai',
+    id: 'gpt-realtime-2.1-mini',
+    label: 'GPT Realtime 2.1 mini',
+    inputPerM: 0.6,
+    outputPerM: 2.4,
+    audioInputPerM: 10.0,
+    audioOutputPerM: 20.0,
+    voice: true,
+    maturity: 'ga',
+    contextWindow: 128_000,
+    transport: 'webrtc',
+    voices: OPENAI_VOICES,
+    defaultVoice: 'marin',
+    preset: 'economy',
+    reasoning: true,
+    affectiveDialog: false,
+    note: 'Modo Economy: mesma janela de 128k e raciocinio da familia 2.1 com custo menor.',
+  },
+  {
+    provider: 'openai',
+    id: 'gpt-realtime-1.5',
+    label: 'GPT Realtime 1.5',
+    inputPerM: 4.0,
+    outputPerM: 16.0,
+    audioInputPerM: 32.0,
+    audioOutputPerM: 64.0,
+    voice: true,
+    maturity: 'ga',
+    contextWindow: 32_000,
+    transport: 'webrtc',
+    voices: OPENAI_VOICES,
+    defaultVoice: 'marin',
+    preset: 'voice-quality',
+    reasoning: false,
+    affectiveDialog: false,
+    note: 'Modo Voice quality: foco em naturalidade de voz, sem raciocinio configuravel.',
   },
   {
     provider: 'openrouter',
@@ -133,6 +226,8 @@ export function modelInfo(ref: ModelRef): ModelInfo | undefined {
 
 export const PROVIDER_LABELS: Record<Provider, string> = {
   gemini: 'Google Gemini',
+  openai: 'OpenAI',
+  anthropic: 'Anthropic',
   openrouter: 'OpenRouter',
 }
 
@@ -166,11 +261,16 @@ export const ROLE_SUGGESTIONS: Record<AgentRole, RoleSuggestion> = {
   },
   interviewer: {
     title: 'Entrevistador (voz ao vivo)',
-    description: 'Conduz a entrevista por voz realtime full-duplex via Gemini Live.',
-    recommended: gemini('gemini-2.5-flash-native-audio-preview-12-2025'),
-    alternatives: [gemini('gemini-3.1-flash-live-preview')],
+    description: 'Conduz a entrevista por voz realtime full-duplex via Gemini Live ou OpenAI WebRTC.',
+    recommended: gemini('gemini-3.1-flash-live-preview'),
+    alternatives: [
+      gemini('gemini-2.5-flash-native-audio-preview-12-2025'),
+      { provider: 'openai', model: 'gpt-realtime-2.1' },
+      { provider: 'openai', model: 'gpt-realtime-2.1-mini' },
+      { provider: 'openai', model: 'gpt-realtime-1.5' },
+    ],
     rationale:
-      'Gemini Live preserva a qualidade atual: audio continuo, barge-in, pausa/retomada e transcricao dos dois lados.',
+      'Gemini 3.1 e o padrao adaptativo. Gemini 2.5 oferece dialogo afetivo; OpenAI 2.1 e premium, 2.1 mini economico e 1.5 prioriza naturalidade.',
   },
   analyst: {
     title: 'Analista (Relatorio de performance)',
@@ -198,11 +298,35 @@ export const DEFAULT_MODELS: Record<AgentRole, ModelRef> = {
   candidate: ROLE_SUGGESTIONS.candidate.recommended,
 }
 
-export const GEMINI_VOICES = ['Kore', 'Puck', 'Charon', 'Fenrir', 'Aoede', 'Leda', 'Orus', 'Zephyr']
-
 export function voicesForProvider(provider: Provider): string[] {
-  void provider
-  return GEMINI_VOICES
+  return provider === 'openai' ? [...OPENAI_VOICES] : [...GEMINI_VOICES]
+}
+
+export function voicesForModel(ref: ModelRef): readonly string[] {
+  return modelInfo(ref)?.voices ?? []
+}
+
+export function defaultVoiceForModel(ref: ModelRef): string {
+  return modelInfo(ref)?.defaultVoice ?? (ref.provider === 'openai' ? 'marin' : 'Kore')
+}
+
+export function compatibleVoice(ref: ModelRef, voice: string | undefined): string {
+  const voices = voicesForModel(ref)
+  return voice && voices.includes(voice) ? voice : defaultVoiceForModel(ref)
+}
+
+export function supportsVoiceReasoning(ref: ModelRef): boolean {
+  return modelInfo(ref)?.reasoning === true
+}
+
+export function supportsAffectiveDialog(ref: ModelRef): boolean {
+  return modelInfo(ref)?.affectiveDialog === true
+}
+
+export const VOICE_REASONING_EFFORT: Record<VoiceReasoningMode, 'minimal' | 'low' | 'medium'> = {
+  fast: 'minimal',
+  balanced: 'low',
+  deep: 'medium',
 }
 
 export const AUDIO_TOKENS_PER_SECOND = 32

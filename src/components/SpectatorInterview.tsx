@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { AlertCircle, Bot, Clock, DollarSign, Mic2, Pause, PhoneOff, Play, RefreshCw } from 'lucide-react'
+import { modelInfo } from '../config/models'
 import { buildInterviewerPrompt } from '../config/prompts'
-import { formatBrl, voiceCostUsd } from '../services/cost'
+import { formatAppError, spectatorCopy } from '../i18n'
+import { addVoiceUsage, emptyVoiceUsage, formatBrl, voiceCostUsd } from '../services/cost'
 import { useSettings, type SettingsState } from '../store'
+import type { CompanyBrief, InterviewConfig, InterviewPlan, ModelRef, TranscriptEntry, VoiceUsage } from '../types'
+import { getVoiceBrokerStatus } from '../voice/broker'
 import { startDualLiveSession } from '../voice/dualLive'
 import { startSpectatorSession, type SpectatorPhase, type SpectatorSession } from '../voice/spectator'
-import type { CompanyBrief, InterviewConfig, InterviewPlan, ModelRef, TranscriptEntry } from '../types'
 import { Button, Card, Spinner } from './ui'
 
 interface Props {
@@ -14,15 +17,6 @@ interface Props {
   plan: InterviewPlan
   previousCostUsd: number
   onFinish: (transcript: TranscriptEntry[], sessionCost: number) => void
-}
-
-const PHASE_TEXT: Record<SpectatorPhase, string> = {
-  connecting: 'Conectando as duas IAs…',
-  'interviewer-speaking': 'O entrevistador está falando…',
-  thinking: 'A candidata está pensando na resposta…',
-  'candidate-speaking': 'A candidata está respondendo…',
-  failed: 'A candidata falhou ao responder.',
-  ended: 'Entrevista encerrada pelo entrevistador.',
 }
 
 interface LatestConnectContext {
@@ -38,6 +32,7 @@ interface LatestConnectContext {
 /** Modo espectador: você ouve duas IAs conversando — entrevistador × candidata. */
 export default function SpectatorInterview({ config, brief, plan, previousCostUsd, onFinish }: Props) {
   const settings = useSettings()
+  const t = spectatorCopy[settings.uiLanguage]
   const [phase, setPhase] = useState<SpectatorPhase>('connecting')
   const [paused, setPaused] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -47,7 +42,7 @@ export default function SpectatorInterview({ config, brief, plan, previousCostUs
 
   const sessionRef = useRef<SpectatorSession | null>(null)
   const transcriptRef = useRef<TranscriptEntry[]>([])
-  const audioSecondsRef = useRef({ input: 0, output: 0 })
+  const voiceUsageRef = useRef<VoiceUsage>(emptyVoiceUsage())
   const candidateCostRef = useRef(0)
   const finishedRef = useRef(false)
   const logRef = useRef<HTMLDivElement>(null)
@@ -81,7 +76,7 @@ export default function SpectatorInterview({ config, brief, plan, previousCostUs
 
   const totalSessionCost = useCallback(() => {
     return (
-      voiceCostUsd(activeInterviewerRef.current, audioSecondsRef.current.input, audioSecondsRef.current.output) +
+      voiceCostUsd(activeInterviewerRef.current, voiceUsageRef.current) +
       candidateCostRef.current
     )
   }, [])
@@ -114,12 +109,27 @@ export default function SpectatorInterview({ config, brief, plan, previousCostUs
     setPhase('connecting')
     sessionRef.current?.stop()
 
-    if (!currentSettings.keys.gemini?.trim()) {
-      setError('Chave Google Gemini não configurada (Configurações → Chaves de API).')
+    let brokerStatus
+    try {
+      brokerStatus = await getVoiceBrokerStatus()
+    } catch {
+      setError(t.brokerUnavailable)
+      return
+    }
+    if (!brokerStatus.gemini) {
+      setError(t.missingGemini)
+      return
+    }
+    if (currentInterviewerRef.provider === 'openai' && !brokerStatus.openai) {
+      setError(t.missingOpenAi)
+      return
+    }
+    if (currentEngine === 'gemini-live' && currentInterviewerRef.provider !== 'gemini') {
+      setError(t.dualRequiresGemini)
       return
     }
     if (currentEngine === 'text-tts' && !currentSettings.keys.openrouter?.trim()) {
-      setError('Chave OpenRouter não configurada — a IA Candidata precisa dela (Configurações → Chaves de API).')
+      setError(t.missingOpenRouter)
       return
     }
 
@@ -154,15 +164,16 @@ export default function SpectatorInterview({ config, brief, plan, previousCostUs
         candidateCostRef.current += usd
         setSessionCost(totalSessionCost())
       },
-      onAudioSeconds: (inDelta: number, outDelta: number) => {
-        audioSecondsRef.current.input += inDelta
-        audioSecondsRef.current.output += outDelta
+      onUsage: (delta: VoiceUsage) => {
+        voiceUsageRef.current = addVoiceUsage(voiceUsageRef.current, delta)
         setSessionCost(totalSessionCost())
       },
       onEndRequested: (delaySec: number) => {
         setTimeout(() => finishRef.current(), (delaySec + 1.5) * 1000)
       },
-      onError: (msg: string) => { if (!finishedRef.current) setError(msg) },
+      onError: (msg: string) => {
+        if (!finishedRef.current) setError(formatAppError(msg, currentSettings.uiLanguage, t.connectFailed))
+      },
       onClose: () => {},
     }
 
@@ -171,9 +182,9 @@ export default function SpectatorInterview({ config, brief, plan, previousCostUs
         ? await startDualLiveSession(opts, callbacks)
         : await startSpectatorSession(opts, callbacks)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Falha ao conectar')
+      setError(formatAppError(e, currentSettings.uiLanguage, t.connectFailed))
     }
-  }, [totalSessionCost])
+  }, [t, totalSessionCost])
 
   useEffect(() => {
     const id = window.setTimeout(() => void connect(), 0)
@@ -234,7 +245,7 @@ export default function SpectatorInterview({ config, brief, plan, previousCostUs
         </div>
         <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 text-emerald-400 rounded-xl text-xs font-mono border border-slate-800">
           <DollarSign className="w-3.5 h-3.5" />
-          {totalBrl} <span className="text-slate-600">(est.)</span>
+          {totalBrl} <span className="text-slate-600">{t.estimated}</span>
         </div>
       </div>
 
@@ -252,8 +263,8 @@ export default function SpectatorInterview({ config, brief, plan, previousCostUs
             </div>
           </div>
           <div className="text-center">
-            <p className="font-semibold text-sm">Entrevistador</p>
-            <p className="text-[11px] text-slate-500">{config.voiceName} · Gemini Live</p>
+            <p className="font-semibold text-sm">{t.interviewer}</p>
+            <p className="text-[11px] text-slate-500">{config.voiceName} · {modelInfo(interviewerRef)?.label}</p>
           </div>
         </Card>
 
@@ -271,21 +282,21 @@ export default function SpectatorInterview({ config, brief, plan, previousCostUs
             </div>
           </div>
           <div className="text-center">
-            <p className="font-semibold text-sm">IA Candidata (você)</p>
+            <p className="font-semibold text-sm">{t.aiCandidate}</p>
             <p className="text-[11px] text-slate-500">
-              {engine === 'gemini-live' ? `${settings.candidateVoice} · Live (experimental)` : `${settings.candidateVoice} · ${candidateRef.model.split('/').pop()}`}
+              {engine === 'gemini-live' ? `${settings.candidateVoice} · ${t.liveExperimental}` : `${settings.candidateVoice} · ${candidateRef.model.split('/').pop()}`}
             </p>
           </div>
         </Card>
       </div>
 
       <div className="text-center">
-        <h2 className="text-xl font-bold">{paused ? 'Entrevista pausada' : PHASE_TEXT[phase]}</h2>
+        <h2 className="text-xl font-bold">{paused ? t.pausedTitle : t.phases[phase]}</h2>
         <p className="text-slate-400 mt-1 text-sm max-w-md">
           {paused
-            ? 'Pausado — as duas IAs estão congeladas. Retome quando quiser.'
-            : 'Modo espectador: a IA candidata responde por você usando o seu CV. Apenas ouça e aprenda.'}
-          {!paused && overtime && ' Tempo extra para finalizar (encerra sozinho em até 5 min).'}
+            ? t.pausedBody
+            : t.body}
+          {!paused && overtime && ` ${t.overtime}`}
         </p>
       </div>
 
@@ -298,11 +309,11 @@ export default function SpectatorInterview({ config, brief, plan, previousCostUs
           <div className="flex flex-wrap gap-2 justify-center">
             {phase === 'failed' ? (
               <Button variant="danger" onClick={() => { setError(null); sessionRef.current?.retryCandidate() }}>
-                <span className="flex items-center gap-2"><RefreshCw className="w-4 h-4" /> Re-tentar resposta</span>
+                <span className="flex items-center gap-2"><RefreshCw className="w-4 h-4" /> {t.retryAnswer}</span>
               </Button>
             ) : (
               <Button variant="danger" onClick={() => void connect()}>
-                <span className="flex items-center gap-2"><RefreshCw className="w-4 h-4" /> Reconectar</span>
+                <span className="flex items-center gap-2"><RefreshCw className="w-4 h-4" /> {t.reconnect}</span>
               </Button>
             )}
           </div>
@@ -318,21 +329,21 @@ export default function SpectatorInterview({ config, brief, plan, previousCostUs
             className="rounded-full px-6"
           >
             <span className="flex items-center gap-2">
-              {paused ? <><Play className="w-5 h-5" /> Retomar</> : <><Pause className="w-5 h-5" /> Pausar</>}
+              {paused ? <><Play className="w-5 h-5" /> {t.resume}</> : <><Pause className="w-5 h-5" /> {t.pause}</>}
             </span>
           </Button>
           <Button variant="danger" onClick={finish} className="rounded-full px-6">
-            <span className="flex items-center gap-2"><PhoneOff className="w-5 h-5" /> Encerrar e gerar relatório</span>
+            <span className="flex items-center gap-2"><PhoneOff className="w-5 h-5" /> {t.finish}</span>
           </Button>
         </div>
       )}
 
       <Card className="w-full p-0 overflow-hidden">
         <div className="px-4 py-2.5 border-b border-slate-800 text-xs font-semibold uppercase tracking-wider text-slate-500">
-          Transcrição ao vivo
+          {t.liveTranscript}
         </div>
         <div ref={logRef} className="h-64 overflow-y-auto p-4 space-y-3 text-sm">
-          {transcript.length === 0 && <p className="text-slate-600 italic">Aguardando o início da conversa…</p>}
+          {transcript.length === 0 && <p className="text-slate-600 italic">{t.waiting}</p>}
           {transcript.map((t, i) => (
             <div key={i} className={`flex ${t.role === 'candidate' ? 'justify-end' : 'justify-start'}`}>
               <div
@@ -343,7 +354,7 @@ export default function SpectatorInterview({ config, brief, plan, previousCostUs
                 }`}
               >
                 <span className="block text-[10px] uppercase tracking-wider opacity-60 mb-0.5">
-                  {t.role === 'candidate' ? 'IA Candidata' : 'Entrevistador'}
+                  {t.role === 'candidate' ? spectatorCopy[settings.uiLanguage].aiCandidateShort : spectatorCopy[settings.uiLanguage].interviewer}
                 </span>
                 {t.text}
               </div>

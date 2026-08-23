@@ -1,6 +1,6 @@
 import { runCandidateTurn } from '../agents/candidate'
 import { ttsCostUsd } from '../services/cost'
-import type { ApiKeys, InterviewConfig, ModelRef, TranscriptEntry } from '../types'
+import type { ApiKeys, InterviewConfig, ModelRef, TranscriptEntry, VoiceUsage } from '../types'
 import { startVoiceSession } from './index'
 import { TtsSpeaker } from './tts'
 import type { VoiceSession } from './types'
@@ -39,8 +39,8 @@ export interface SpectatorCallbacks {
   onTranscript: (entry: TranscriptEntry) => void
   /** Custo incremental da candidata (tokens LLM + áudio TTS), em USD. */
   onCandidateCost: (usd: number) => void
-  /** Segundos de áudio da sessão Live (para custo de voz do entrevistador). */
-  onAudioSeconds: (inputDelta: number, outputDelta: number) => void
+  /** Structured voice usage from the interviewer session. */
+  onUsage: (delta: VoiceUsage) => void
   onError: (message: string) => void
   /** Entrevistador encerrou via tool end_interview. delaySec = áudio restante. */
   onEndRequested: (delaySec: number) => void
@@ -91,7 +91,6 @@ export async function startSpectatorSession(
       cb.onPhase('candidate-speaking')
       try {
         const seconds = await tts.speak({
-          apiKey: opts.keys.gemini,
           model: opts.ttsModel,
           voiceName: opts.candidateVoice,
           text: result.data,
@@ -107,25 +106,27 @@ export async function startSpectatorSession(
       cb.onPhase('interviewer-speaking')
     } catch (e) {
       cb.onPhase('failed')
-      cb.onError(e instanceof Error ? e.message : 'Falha ao gerar a resposta da IA Candidata.')
+      cb.onError(e instanceof Error ? e.message : 'CANDIDATE_RESPONSE_FAILED')
     } finally {
       responding = false
     }
   }
 
   voice = await startVoiceSession(opts.interviewerRef, {
-    apiKey: opts.keys.gemini,
     model: opts.interviewerRef.model,
     voiceName: opts.config.voiceName,
     systemInstruction: opts.systemInstruction,
     language: opts.config.interviewLanguage,
+    durationMinutes: opts.config.duration,
+    reasoningMode: opts.config.voiceReasoningMode,
+    expressiveness: opts.config.voiceExpressiveness,
     captureMic: false,
   }, {
     onOpen: () => { if (!stopped) cb.onPhase('interviewer-speaking') },
     onAudioLevel: () => {},
     onTranscript: (role, text) => { if (!stopped) pushEntry(role, text) },
     onTurnComplete: () => { void respond() },
-    onAudioSeconds: cb.onAudioSeconds,
+    onUsage: cb.onUsage,
     onEndRequested: (delaySec) => {
       ended = true
       cb.onPhase('ended')

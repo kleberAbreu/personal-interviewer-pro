@@ -1,4 +1,5 @@
 import type { ApiKeys, ModelRef, TokenUsage } from '../types'
+import { sanitizeErrorMessage } from '../lib/errors'
 
 const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1'
 const APP_REFERER = 'https://github.com/kleberAbreu/personal-interviewer-pro'
@@ -34,7 +35,7 @@ export interface ChatTextParams {
 
 function requireOpenRouterKey(keys: ApiKeys): string {
   if (!keys.openrouter?.trim()) {
-    throw new Error('Chave de API OpenRouter não configurada. Abra Configurações → Chaves de API.')
+    throw new Error('MISSING_API_KEY:OpenRouter')
   }
   return keys.openrouter.trim()
 }
@@ -43,9 +44,9 @@ async function readError(res: Response): Promise<string> {
   const text = await res.text()
   try {
     const parsed = JSON.parse(text) as { error?: { message?: string }; message?: string }
-    return parsed.error?.message ?? parsed.message ?? text.slice(0, 300)
+    return sanitizeErrorMessage(parsed.error?.message ?? parsed.message ?? text.slice(0, 300))
   } catch {
-    return text.slice(0, 300)
+    return sanitizeErrorMessage(text.slice(0, 300))
   }
 }
 
@@ -58,7 +59,7 @@ interface CompletionBody {
 
 async function completions(ref: ModelRef, keys: ApiKeys, body: CompletionBody): Promise<ChatResult> {
   if (ref.provider !== 'openrouter') {
-    throw new Error('Os agentes de texto usam apenas OpenRouter. Ajuste os modelos em Configurações → Modelos.')
+    throw new Error('Text roles require an OpenRouter model.')
   }
 
   const res = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
