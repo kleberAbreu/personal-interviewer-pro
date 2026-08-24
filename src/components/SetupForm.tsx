@@ -4,7 +4,7 @@ import { compatibleVoice, supportsAffectiveDialog, supportsVoiceReasoning, voice
 import { areaLabels, interviewTypeLabels, setupCopy } from '../i18n'
 import { useSettings } from '../store'
 import type { Area, CandidateMode, InterviewConfig, InterviewType, Language, VoiceExpressiveness, VoiceReasoningMode, Weights } from '../types'
-import { Button, Card, Field, SectionTitle, inputCls } from './ui'
+import { Button, Card, Field, SectionTitle, Select, inputCls } from './ui'
 
 const AREAS: Area[] = ['Software', 'Produto', 'Dados', 'Comercial', 'Outra']
 const TYPES: InterviewType[] = ['RH', 'Tecnica', 'Case', 'Mista']
@@ -80,14 +80,20 @@ export default function SetupForm({ onStart }: { onStart: (config: InterviewConf
         <SectionTitle icon={<Briefcase className="w-4 h-4" />}>{t.jobContext}</SectionTitle>
         <div className="grid md:grid-cols-2 gap-4">
           <Field label={t.area}>
-            <select className={inputCls} value={area} onChange={(e) => setArea(e.target.value as Area)}>
-              {AREAS.map((a) => <option key={a} value={a}>{areaLabels[uiLanguage][a]}</option>)}
-            </select>
+            <Select
+              value={area}
+              options={AREAS.map((item) => ({ value: item, label: areaLabels[uiLanguage][item] }))}
+              onChange={(next) => setArea(next as Area)}
+              ariaLabel={t.area}
+            />
           </Field>
           <Field label={t.interviewType}>
-            <select className={inputCls} value={interviewType} onChange={(e) => setInterviewType(e.target.value as InterviewType)}>
-              {TYPES.map((type) => <option key={type} value={type}>{interviewTypeLabels[uiLanguage][type]}</option>)}
-            </select>
+            <Select
+              value={interviewType}
+              options={TYPES.map((item) => ({ value: item, label: interviewTypeLabels[uiLanguage][item] }))}
+              onChange={(next) => setInterviewType(next as InterviewType)}
+              ariaLabel={t.interviewType}
+            />
           </Field>
         </div>
         {area === 'Outra' && (
@@ -168,30 +174,38 @@ export default function SetupForm({ onStart }: { onStart: (config: InterviewConf
             </div>
           </Field>
           <Field label={t.feedbackLanguage} hint={t.feedbackLanguageHint}>
-            <select className={inputCls} value={feedbackLanguage} onChange={(e) => setFeedbackLanguage(e.target.value as Language)}>
-              <option value="pt-BR">{t.reportPt}</option>
-              <option value="en-US">{t.reportEn}</option>
-            </select>
+            <Select
+              value={feedbackLanguage}
+              options={[
+                { value: 'pt-BR', label: t.reportPt },
+                { value: 'en-US', label: t.reportEn },
+              ]}
+              onChange={(next) => setFeedbackLanguage(next as Language)}
+              ariaLabel={t.feedbackLanguage}
+            />
           </Field>
         </div>
         <div className="grid md:grid-cols-3 gap-4">
           <Field label={t.voice}>
-            <div className="relative">
-              <Mic2 className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-              <select className={`${inputCls} pl-9`} value={selectedVoiceName} onChange={(e) => setVoiceName(e.target.value)}>
-                {voices.map((v) => <option key={v}>{v}</option>)}
-              </select>
-            </div>
+            <Select
+              value={selectedVoiceName}
+              options={voices.map((voice) => ({ value: voice, label: voice }))}
+              onChange={setVoiceName}
+              ariaLabel={t.voice}
+              leadingIcon={<Mic2 className="w-4 h-4" />}
+            />
           </Field>
           <Field label={t.duration}>
-            <div className="relative">
-              <Timer className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-              <select className={`${inputCls} pl-9`} value={duration} onChange={(e) => setDuration(Number(e.target.value) as 15 | 30 | 45)}>
-                <option value={15}>15 {t.minutes}</option>
-                <option value={30}>30 {t.minutes}</option>
-                <option value={45}>45 {t.minutes}</option>
-              </select>
-            </div>
+            <Select
+              value={String(duration)}
+              options={[15, 30, 45].map((minutes) => ({
+                value: String(minutes),
+                label: `${minutes} ${t.minutes}`,
+              }))}
+              onChange={(next) => setDuration(Number(next) as 15 | 30 | 45)}
+              ariaLabel={t.duration}
+              leadingIcon={<Timer className="w-4 h-4" />}
+            />
           </Field>
           <Field label={t.stressMode} hint={t.stressHint}>
             <button

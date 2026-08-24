@@ -11,7 +11,7 @@ import { modelNote, providerLabels, roleSuggestionCopy, settingsCopy } from '../
 import { useSettings } from '../store'
 import { getVoiceBrokerStatus, type VoiceBrokerStatus } from '../voice/broker'
 import type { AgentRole, ApiKeys, CandidateEngine, ModelRef } from '../types'
-import { Badge, Button, Card, Field, inputCls } from './ui'
+import { Badge, Button, Card, Field, Select, inputCls } from './ui'
 
 const ROLES: AgentRole[] = ['researcher', 'planner', 'interviewer', 'analyst', 'candidate']
 type Tab = 'keys' | 'models' | 'prompt' | 'cost'
@@ -144,20 +144,18 @@ function ModelsTab() {
                 {isRecommended ? <Badge tone="green">{t.recommended}</Badge> : <Badge tone="slate">{t.custom}</Badge>}
               </div>
             </div>
-            <select
-              className={inputCls}
+            <Select
               value={`${current.provider}::${current.model}`}
-              onChange={(e) => {
-                const [provider, model] = e.target.value.split('::')
+              options={options.map((model) => ({
+                value: `${model.provider}::${model.id}`,
+                label: `${model.label} - ${providerLabels[model.provider]} (~${model.inputPerM}/${model.outputPerM} ${t.perMTok})`,
+              }))}
+              onChange={(next) => {
+                const [provider, model] = next.split('::')
                 setModel(role, { provider, model } as ModelRef)
               }}
-            >
-              {options.map((m) => (
-                <option key={`${m.provider}::${m.id}`} value={`${m.provider}::${m.id}`}>
-                  {m.label} - {providerLabels[m.provider]} (~${m.inputPerM}/{m.outputPerM} {t.perMTok})
-                </option>
-              ))}
-            </select>
+              ariaLabel={sugText.title}
+            />
             {info?.note && role !== 'candidate' && <p className="text-xs text-slate-500 mt-2">{modelNote(uiLanguage, info.provider, info.id, info.note)}</p>}
             {info?.voice && (
               <p className="text-[11px] text-slate-600 mt-1.5">
@@ -198,24 +196,31 @@ function CandidateExtras() {
   return (
     <div className="mt-3 grid md:grid-cols-3 gap-3">
       <Field label={t.engine}>
-        <select
-          className={inputCls}
+        <Select
           value={candidateEngine}
-          onChange={(event) => setCandidateEngine(event.target.value as CandidateEngine)}
-        >
-          <option value="text-tts">{t.textTts}</option>
-          <option value="gemini-live">{t.geminiLive}</option>
-        </select>
+          options={[
+            { value: 'text-tts', label: t.textTts },
+            { value: 'gemini-live', label: t.geminiLive },
+          ]}
+          onChange={(next) => setCandidateEngine(next as CandidateEngine)}
+          ariaLabel={t.engine}
+        />
       </Field>
       <Field label={t.voice}>
-        <select className={inputCls} value={candidateVoice} onChange={(event) => setCandidateVoice(event.target.value)}>
-          {GEMINI_VOICES.map((voice) => <option key={voice}>{voice}</option>)}
-        </select>
+        <Select
+          value={candidateVoice}
+          options={GEMINI_VOICES.map((voice) => ({ value: voice, label: voice }))}
+          onChange={setCandidateVoice}
+          ariaLabel={t.voice}
+        />
       </Field>
       <Field label={t.ttsModel}>
-        <select className={inputCls} value={candidateTtsModel} onChange={(event) => setCandidateTtsModel(event.target.value)}>
-          {CANDIDATE_TTS_MODELS.map((model) => <option key={model.id} value={model.id}>{t.ttsModels[model.id]}</option>)}
-        </select>
+        <Select
+          value={candidateTtsModel}
+          options={CANDIDATE_TTS_MODELS.map((model) => ({ value: model.id, label: t.ttsModels[model.id] }))}
+          onChange={setCandidateTtsModel}
+          ariaLabel={t.ttsModel}
+        />
       </Field>
     </div>
   )
