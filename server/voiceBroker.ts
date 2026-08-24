@@ -1,4 +1,6 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
+import { chmod, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
+import { dirname, resolve } from 'node:path'
 import { CANDIDATE_TTS_MODELS, CATALOG, GEMINI_VOICES, voicesForModel } from '../src/config/models'
 
 const MAX_BODY_BYTES = 8_192
@@ -14,6 +16,112 @@ const GEMINI_TTS_VOICES = new Set<string>(GEMINI_VOICES)
 export interface BrokerEnvironment {
   OPENAI_API_KEY?: string
   GEMINI_API_KEY?: string
+}
+
+export interface VoiceCredentialUpdate {
+  openai?: string | null
+  gemini?: string | null
+}
+
+export interface VoiceBrokerOptions {
+  envFilePath?: string
+}
+
+const VOICE_ENV_KEYS = {
+  openai: 'OPENAI_API_KEY',
+  gemini: 'GEMINI_API_KEY',
+} as const
+
+function hasOwn(value: object, key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(value, key)
+}
+
+export function validateVoiceCredentialUpdate(value: unknown): VoiceCredentialUpdate {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('Voice credential update must be a JSON object.')
+  }
+  const body = value as Record<string, unknown>
+  const allowedProviders = Object.keys(VOICE_ENV_KEYS) as Array<keyof VoiceCredentialUpdate>
+  const unknownFields = Object.keys(body).filter((key) => !allowedProviders.includes(key as keyof VoiceCredentialUpdate))
+  if (unknownFields.length) throw new Error('Voice credential update contains unsupported fields.')
+
+  const provided = allowedProviders.filter((provider) => hasOwn(body, provider))
+  if (!provided.length) throw new Error('Provide an OpenAI or Gemini credential update.')
+
+  const result: VoiceCredentialUpdate = {}
+  for (const provider of provided) {
+    const raw = body[provider]
+    if (raw === null) {
+      result[provider] = null
+      continue
+    }
+    if (typeof raw !== 'string') throw new Error(`Invalid ${provider} API key format.`)
+    const apiKey = raw.trim()
+    if (apiKey.length < 20 || apiKey.length > 512 || !/^[A-Za-z0-9._-]+$/.test(apiKey)) {
+      throw new Error(`Invalid ${provider} API key format.`)
+    }
+    result[provider] = apiKey
+  }
+  return result
+}
+
+function updateEnvFile(content: string, envKey: string, value: string | null): string {
+  const lines = content.replace(/\r\n/g, '\n').split('\n')
+  const pattern = new RegExp(`^\\s*(?:export\\s+)?${envKey}\\s*=`)
+  const next: string[] = []
+  let written = false
+
+  for (const line of lines) {
+    if (!pattern.test(line)) {
+      next.push(line)
+      continue
+    }
+    if (value !== null && !written) {
+      next.push(`${envKey}=${value}`)
+      written = true
+    }
+  }
+
+  while (next.at(-1) === '') next.pop()
+  if (value !== null && !written) {
+    if (next.length) next.push('')
+    next.push(`${envKey}=${value}`)
+  }
+  return `${next.join('\n')}\n`
+}
+
+async function persistVoiceCredentials(envFilePath: string, update: VoiceCredentialUpdate): Promise<void> {
+  let content: string
+  try {
+    content = await readFile(envFilePath, 'utf8')
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw new Error('Voice credentials could not be saved locally.', { cause: error })
+    }
+    content = '# Voice credentials managed by Personal Interviewer Pro.\n'
+  }
+
+  for (const provider of Object.keys(update) as Array<keyof VoiceCredentialUpdate>) {
+    const value = update[provider]
+    if (value !== undefined) content = updateEnvFile(content, VOICE_ENV_KEYS[provider], value)
+  }
+
+  await mkdir(dirname(envFilePath), { recursive: true })
+  const tempPath = `${envFilePath}.${process.pid}.${Date.now()}.tmp`
+  try {
+    await writeFile(tempPath, content, { encoding: 'utf8', mode: 0o600, flag: 'wx' })
+    await chmod(tempPath, 0o600)
+    await rename(tempPath, envFilePath)
+    await chmod(envFilePath, 0o600)
+  } catch (error) {
+    throw new Error('Voice credentials could not be saved locally.', { cause: error })
+  } finally {
+    await rm(tempPath, { force: true }).catch(() => {})
+  }
+}
+
+function voiceStatus(env: BrokerEnvironment) {
+  return { openai: Boolean(env.OPENAI_API_KEY), gemini: Boolean(env.GEMINI_API_KEY) }
 }
 
 export function validateOpenAiRequest(value: unknown): { model: string; voice: string } {
@@ -166,7 +274,28 @@ async function createGeminiSpeech(env: BrokerEnvironment, value: unknown): Promi
   return { audio }
 }
 
-export function createVoiceBroker(env: BrokerEnvironment = process.env) {
+export function createVoiceBroker(
+  env: BrokerEnvironment = process.env,
+  options: VoiceBrokerOptions = {},
+) {
+  const envFilePath = options.envFilePath ?? resolve(process.cwd(), '.env.local')
+  let credentialUpdateQueue: Promise<void> = Promise.resolve()
+
+  const updateVoiceCredentials = (value: unknown) => {
+    const update = validateVoiceCredentialUpdate(value)
+    const task = credentialUpdateQueue.then(async () => {
+      await persistVoiceCredentials(envFilePath, update)
+      for (const provider of Object.keys(update) as Array<keyof VoiceCredentialUpdate>) {
+        const envKey = VOICE_ENV_KEYS[provider]
+        const apiKey = update[provider]
+        if (apiKey === null) delete env[envKey]
+        else if (apiKey !== undefined) env[envKey] = apiKey
+      }
+    })
+    credentialUpdateQueue = task.catch(() => {})
+    return task.then(() => voiceStatus(env))
+  }
+
   return createServer(async (request, response) => {
     response.setHeader('Cache-Control', 'no-store')
     if (!isLoopbackOrigin(request.headers.origin)) {
@@ -177,7 +306,11 @@ export function createVoiceBroker(env: BrokerEnvironment = process.env) {
     const path = new URL(request.url ?? '/', 'http://127.0.0.1').pathname
     try {
       if (request.method === 'GET' && path === '/api/voice/status') {
-        sendJson(response, 200, { openai: Boolean(env.OPENAI_API_KEY), gemini: Boolean(env.GEMINI_API_KEY) })
+        sendJson(response, 200, voiceStatus(env))
+        return
+      }
+      if (request.method === 'POST' && path === '/api/voice/credentials') {
+        sendJson(response, 200, await updateVoiceCredentials(await readJson(request)))
         return
       }
       if (request.method === 'POST' && path === '/api/voice/openai/client-secret') {
@@ -195,7 +328,9 @@ export function createVoiceBroker(env: BrokerEnvironment = process.env) {
       sendJson(response, 404, { error: 'Voice broker endpoint not found.' })
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Voice broker request failed.'
-      const status = message.includes('not configured') ? 503 : 400
+      const status = message.includes('not configured')
+        ? 503
+        : message.includes('could not be saved') ? 500 : 400
       sendJson(response, status, { error: message })
     }
   })

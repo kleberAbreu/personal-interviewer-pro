@@ -12,11 +12,14 @@ through the GitHub profile for this repository.
 
 ## Handling sensitive data
 
-This project is source code for personal/local use. Long-lived Gemini and
-OpenAI voice keys are read from `.env.local` by a loopback-only broker. The
-browser receives only short-lived voice credentials. Text-agent BYOK keys still
-use browser `localStorage` and go directly to OpenRouter. Gemini candidate TTS
-is proxied by the loopback broker, so its long-lived key also stays server-side.
+This project is source code for personal/local use. Gemini and OpenAI voice keys
+entered in Settings exist briefly in browser memory and are sent only to a
+loopback-only broker. The broker stores them in `.env.local` with owner-only
+permissions, never returns their values, and issues short-lived browser
+credentials for voice sessions. Text-agent BYOK keys still use browser
+`localStorage` and go directly to OpenRouter. Gemini candidate TTS is proxied by
+the loopback broker, so its long-lived key is never persisted in browser
+storage.
 Before sharing logs or reproduction steps, remove:
 
 - API keys, tokens, cookies, and authorization headers.

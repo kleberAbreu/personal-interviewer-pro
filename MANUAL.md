@@ -6,25 +6,30 @@ This repository contains source code for local use. It is not a hosted demo.
 
 1. Install Node.js 20 or newer.
 2. Run `npm ci`.
-3. Create `.env.local` from `.env.example`.
-4. Add a Gemini and/or OpenAI key for the voice models you plan to use.
-5. Run `npm run dev` and open the Vite URL.
+3. Run `npm run dev` and open the Vite URL.
+4. Open **Settings -> API keys** and add the provider keys you plan to use.
 
 The command starts both the browser app and a broker bound to `127.0.0.1`. The
 broker converts long-lived provider keys into short-lived browser credentials.
-Full voice keys are never stored in `localStorage` or sent to the Vite bundle.
+Voice keys exist briefly in the password fields while entered. They are sent
+only to the loopback broker, saved in `.env.local` with owner-only permissions,
+and are never stored in `localStorage`, sent to the Vite bundle, or returned by
+an API response. Advanced users can still create `.env.local` from
+`.env.example` and edit it directly.
 
 The optional `curl` installer documented in `README.md` provides the same
 loopback-only architecture through the `interview-pro` command.
 
-## 2. Text Provider Keys
+## 2. Provider Keys
 
 Open **Settings -> API keys** to configure the OpenRouter BYOK key used by the
 Researcher, Planner, Analyst, and AI Candidate. This key remains in browser
 `localStorage` and is sent directly to OpenRouter. Voice does not use it.
 
-The **Local voice broker** status shows whether Gemini and OpenAI voice keys were
-detected in `.env.local`. Restart `npm run dev` after changing that file.
+In the same first tab, configure OpenAI for GPT Realtime and Gemini for Gemini
+Live and candidate TTS. You can add, replace, or remove each voice key without
+restarting the app. The interface displays only configured/not-configured
+status and never reads a saved key back from the broker.
 
 ## 3. Choose The Interviewer
 

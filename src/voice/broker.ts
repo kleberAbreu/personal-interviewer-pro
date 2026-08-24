@@ -5,6 +5,11 @@ export interface VoiceBrokerStatus {
   gemini: boolean
 }
 
+export interface VoiceCredentialUpdate {
+  openai?: string | null
+  gemini?: string | null
+}
+
 interface OpenAiSecretResponse {
   value: string
   expiresAt: number
@@ -35,6 +40,13 @@ async function brokerRequest<T>(path: string, init?: RequestInit): Promise<T> {
 
 export function getVoiceBrokerStatus(): Promise<VoiceBrokerStatus> {
   return brokerRequest<VoiceBrokerStatus>('/api/voice/status')
+}
+
+export function updateVoiceCredentials(update: VoiceCredentialUpdate): Promise<VoiceBrokerStatus> {
+  return brokerRequest<VoiceBrokerStatus>('/api/voice/credentials', {
+    method: 'POST',
+    body: JSON.stringify(update),
+  })
 }
 
 export function requestOpenAiClientSecret(model: string, voice: string): Promise<OpenAiSecretResponse> {

@@ -67,7 +67,7 @@ build_app() {
 
   if [ ! -f "$INSTALL_DIR/.env.local" ]; then
     cp "$INSTALL_DIR/.env.example" "$INSTALL_DIR/.env.local"
-    log "Created $INSTALL_DIR/.env.local; add your selected voice provider key before starting an interview"
+    log "Created $INSTALL_DIR/.env.local; configure provider keys in Settings -> API keys after starting the app"
   fi
 }
 

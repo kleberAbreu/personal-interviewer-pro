@@ -31,15 +31,18 @@ Prerequisite: Node.js 20 or newer.
 
 ```bash
 npm ci
-cp .env.example .env.local
 npm run dev
 ```
 
-Add `GEMINI_API_KEY` and/or `OPENAI_API_KEY` to `.env.local` before starting.
 `npm run dev` starts Vite and a loopback-only broker on `127.0.0.1`. Vite proxies
-`/api` to the broker.
+`/api` to the broker. Open **Settings -> API keys** to configure OpenRouter for
+text agents and OpenAI and/or Gemini for voice. The voice fields save directly
+to `.env.local`; editing that file manually remains an optional alternative.
 
-The broker never returns a full provider key:
+Voice keys exist briefly in the password fields while entered, but are never
+stored in `localStorage`, included in the Vite bundle, or returned by the
+broker. The broker saves `.env.local` with owner-only permissions and uses the
+long-lived keys only to issue browser-safe credentials:
 
 - OpenAI voice receives a short-lived Realtime client secret and connects with
   WebRTC using the GA interface.
@@ -62,7 +65,8 @@ interview-pro
 ```
 
 The default installation lives at `~/.local/share/personal-interviewer-pro`.
-Add the selected voice keys to its `.env.local` before starting an interview.
+Add the selected keys through **Settings -> API keys** before starting an
+interview.
 
 ## Spectator Mode
 

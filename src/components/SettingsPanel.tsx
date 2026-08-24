@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Check, KeyRound, MessageSquareText, Receipt, Server, Sparkles, X } from 'lucide-react'
+import { Check, KeyRound, MessageSquareText, Receipt, Save, Server, Sparkles, Trash2, X } from 'lucide-react'
 import {
   CANDIDATE_TTS_MODELS,
   CATALOG,
@@ -9,7 +9,7 @@ import {
 } from '../config/models'
 import { modelNote, providerLabels, roleSuggestionCopy, settingsCopy } from '../i18n'
 import { useSettings } from '../store'
-import { getVoiceBrokerStatus, type VoiceBrokerStatus } from '../voice/broker'
+import { getVoiceBrokerStatus, updateVoiceCredentials, type VoiceBrokerStatus } from '../voice/broker'
 import type { AgentRole, ApiKeys, CandidateEngine, ModelRef } from '../types'
 import { Badge, Button, Card, Field, Select, inputCls } from './ui'
 
@@ -73,30 +73,161 @@ function KeysTab() {
     { id: 'openrouter', label: 'OpenRouter', hint: t.keys.openrouter },
   ]
   const [voiceStatus, setVoiceStatus] = useState<VoiceBrokerStatus | null>(null)
-  const [brokerAvailable, setBrokerAvailable] = useState(true)
+  const [brokerAvailable, setBrokerAvailable] = useState<boolean | null>(null)
+  const [openAiKey, setOpenAiKey] = useState('')
+  const [geminiKey, setGeminiKey] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [feedback, setFeedback] = useState<{ tone: 'success' | 'error'; message: string } | null>(null)
 
   useEffect(() => {
     let active = true
     void getVoiceBrokerStatus()
-      .then((status) => { if (active) setVoiceStatus(status) })
+      .then((status) => {
+        if (!active) return
+        setVoiceStatus(status)
+        setBrokerAvailable(true)
+      })
       .catch(() => { if (active) setBrokerAvailable(false) })
     return () => { active = false }
   }, [])
+
+  const saveVoiceKeys = async () => {
+    const update = {
+      ...(openAiKey.trim() ? { openai: openAiKey.trim() } : {}),
+      ...(geminiKey.trim() ? { gemini: geminiKey.trim() } : {}),
+    }
+    if (!Object.keys(update).length) return
+
+    setSaving(true)
+    setFeedback(null)
+    try {
+      const status = await updateVoiceCredentials(update)
+      setVoiceStatus(status)
+      setBrokerAvailable(true)
+      setOpenAiKey('')
+      setGeminiKey('')
+      setFeedback({ tone: 'success', message: t.voiceBroker.saved })
+    } catch (error) {
+      if (error instanceof Error && error.message === 'VOICE_BROKER_UNAVAILABLE') setBrokerAvailable(false)
+      setFeedback({ tone: 'error', message: t.voiceBroker.saveError })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const removeVoiceKey = async (provider: 'openai' | 'gemini', label: string) => {
+    if (!window.confirm(t.voiceBroker.confirmRemove(label))) return
+    setSaving(true)
+    setFeedback(null)
+    try {
+      const status = await updateVoiceCredentials({ [provider]: null })
+      setVoiceStatus(status)
+      setBrokerAvailable(true)
+      if (provider === 'openai') setOpenAiKey('')
+      else setGeminiKey('')
+      setFeedback({ tone: 'success', message: t.voiceBroker.removed(label) })
+    } catch (error) {
+      if (error instanceof Error && error.message === 'VOICE_BROKER_UNAVAILABLE') setBrokerAvailable(false)
+      setFeedback({ tone: 'error', message: t.voiceBroker.saveError })
+    } finally {
+      setSaving(false)
+    }
+  }
 
   return (
     <div className="space-y-5">
       <p className="text-sm text-slate-400">{t.keysIntro}</p>
       <div className="p-4 rounded-lg border border-slate-700 bg-slate-950/50">
-        <div className="flex items-center gap-2 text-sm font-semibold text-slate-200 mb-3">
-          <Server className="w-4 h-4 text-cyan-400" /> {t.voiceBroker.title}
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <div className="flex items-center gap-2 text-sm font-semibold text-slate-200">
+            <Server className="w-4 h-4 text-cyan-400" /> {t.voiceBroker.title}
+          </div>
+          <Badge tone={brokerAvailable === false ? 'red' : brokerAvailable ? 'green' : 'slate'}>
+            {brokerAvailable === false ? t.voiceBroker.offline : brokerAvailable ? t.voiceBroker.online : t.voiceBroker.checking}
+          </Badge>
         </div>
         <div className="flex flex-wrap gap-2">
           <Badge tone={voiceStatus?.gemini ? 'green' : 'slate'}>Gemini: {voiceStatus?.gemini ? t.voiceBroker.configured : t.voiceBroker.notConfigured}</Badge>
           <Badge tone={voiceStatus?.openai ? 'green' : 'slate'}>OpenAI: {voiceStatus?.openai ? t.voiceBroker.configured : t.voiceBroker.notConfigured}</Badge>
         </div>
         <p className="text-xs text-slate-500 mt-3">
-          {brokerAvailable ? t.voiceBroker.hint : t.voiceBroker.unavailable}
+          {brokerAvailable === false ? t.voiceBroker.unavailable : t.voiceBroker.hint}
         </p>
+        <form
+          className="mt-5 space-y-4"
+          onSubmit={(event) => {
+            event.preventDefault()
+            void saveVoiceKeys()
+          }}
+        >
+          <Field label={t.voiceBroker.openAiLabel} hint={t.voiceBroker.openAiHint}>
+            <div className="flex items-center gap-2">
+              <input
+                type="password"
+                className={inputCls}
+                value={openAiKey}
+                onChange={(event) => setOpenAiKey(event.target.value)}
+                placeholder={voiceStatus?.openai ? t.voiceBroker.replacePlaceholder : t.voiceBroker.openAiPlaceholder}
+                autoComplete="new-password"
+                spellCheck={false}
+                disabled={brokerAvailable === false || saving}
+              />
+              {voiceStatus?.openai && (
+                <Button
+                  variant="ghost"
+                  className="shrink-0 px-3"
+                  disabled={saving}
+                  onClick={() => void removeVoiceKey('openai', 'OpenAI')}
+                >
+                  <span className="sr-only">{t.voiceBroker.remove('OpenAI')}</span>
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              )}
+            </div>
+          </Field>
+          <Field label={t.voiceBroker.geminiLabel} hint={t.voiceBroker.geminiHint}>
+            <div className="flex items-center gap-2">
+              <input
+                type="password"
+                className={inputCls}
+                value={geminiKey}
+                onChange={(event) => setGeminiKey(event.target.value)}
+                placeholder={voiceStatus?.gemini ? t.voiceBroker.replacePlaceholder : t.voiceBroker.geminiPlaceholder}
+                autoComplete="new-password"
+                spellCheck={false}
+                disabled={brokerAvailable === false || saving}
+              />
+              {voiceStatus?.gemini && (
+                <Button
+                  variant="ghost"
+                  className="shrink-0 px-3"
+                  disabled={saving}
+                  onClick={() => void removeVoiceKey('gemini', 'Gemini')}
+                >
+                  <span className="sr-only">{t.voiceBroker.remove('Gemini')}</span>
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              )}
+            </div>
+          </Field>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p
+              className={`text-xs ${feedback?.tone === 'error' ? 'text-red-400' : 'text-emerald-400'}`}
+              role="status"
+              aria-live="polite"
+            >
+              {feedback?.message}
+            </p>
+            <Button
+              type="submit"
+              disabled={brokerAvailable !== true || saving || (!openAiKey.trim() && !geminiKey.trim())}
+            >
+              <span className="flex items-center gap-2">
+                <Save className="w-4 h-4" /> {saving ? t.voiceBroker.saving : t.voiceBroker.save}
+              </span>
+            </Button>
+          </div>
+        </form>
       </div>
       {entries.map((e) => (
         <Field key={e.id} label={e.label} hint={e.hint}>
