@@ -157,10 +157,10 @@ const MANUAL_COPY: Record<UiLanguage, ManualCopy> = {
     keys: {
       title: 'API keys',
       lead: 'Voice and text credentials follow separate local paths.',
-      explanation: 'Add Gemini and/or OpenAI in Settings for voice. The loopback broker saves them to .env.local and exchanges them for short-lived credentials. The OpenRouter key remains browser-only and is used by text agents.',
+      explanation: 'Configure all providers in Settings -> API keys. OpenRouter powers every text model, including GPT-5.6 and Claude Opus 5. The direct OpenAI key is used only for GPT Realtime voice; Gemini is used for Gemini Live and candidate TTS. The loopback broker saves voice keys to .env.local and exchanges them for short-lived credentials.',
       cost: 'The app is free, but providers charge for usage. The running estimate appears in the app so you can watch costs.',
       stepsTitle: 'How to add keys',
-      steps: ['Start both the app and broker with npm run dev.', 'Open Settings -> API keys.', 'Add OpenAI and/or Gemini for voice and OpenRouter for text roles.', 'Check the configured status before starting.'],
+      steps: ['Start both the app and broker with npm run dev.', 'Open Settings -> API keys.', 'Add OpenRouter for text and OpenAI and/or Gemini for voice.', 'Use the save button to add or replace voice keys; use the trash icon to remove one.', 'Check the configured status before starting.'],
       providersTitle: 'Where to get keys',
       providers: [
         { name: 'Google Gemini', url: 'aistudio.google.com/apikey', what: 'Gemini Live and spectator TTS through the local broker.' },
@@ -231,7 +231,8 @@ const MANUAL_COPY: Record<UiLanguage, ManualCopy> = {
       title: 'Advanced settings',
       lead: 'The defaults are enough to start, but you can tune the pipeline.',
       tiles: [
-        { icon: <Sparkles className="w-4 h-4" />, title: 'Models', body: 'Choose Default, Expressive, Premium, Economy, or Voice quality for the interviewer and a model for each text role.' },
+        { icon: <Sparkles className="w-4 h-4" />, title: 'Models', body: 'Choose a voice preset and a text model for each role, including GPT-5.6, Claude Opus 5, and Latest aliases through OpenRouter.' },
+        { icon: <Sparkles className="w-4 h-4" />, title: 'Latest or fixed', body: 'Latest follows future family upgrades automatically. Choose Sol, Terra, Luna, Opus 5, or Sonnet 5 when you need a stable model ID and predictable behavior.' },
         { icon: <MessageSquareText className="w-4 h-4" />, title: 'Interviewer prompt', body: 'Add quick instructions or edit the full interviewer template.' },
         { icon: <Receipt className="w-4 h-4" />, title: 'Costs', body: 'Adjust the USD to BRL exchange rate used for estimated display costs.' },
       ],
@@ -252,6 +253,9 @@ const MANUAL_COPY: Record<UiLanguage, ManualCopy> = {
       faqs: [
         { q: 'I cannot hear the interviewer.', a: 'Check microphone permission, output volume, and the local voice broker status.' },
         { q: 'The app says a voice key is missing.', a: 'Open Settings -> API keys and add the selected voice provider key.' },
+        { q: 'Which key unlocks GPT-5.6 and Claude Opus 5?', a: 'The OpenRouter key. The direct OpenAI key is only for GPT Realtime interviewer voice in this app.' },
+        { q: 'Can I replace or remove a saved voice key?', a: 'Yes. Enter a new value and save to replace it, or use the trash icon beside a configured provider to remove it.' },
+        { q: 'Should I choose Latest or a fixed model?', a: 'Use Latest for automatic family upgrades. Use a named release when reproducibility and stable behavior matter more.' },
         { q: 'Can I paste any resume or role?', a: 'Avoid confidential material, trade secrets, and sensitive personal data because providers process the session data.' },
         { q: 'Do I need to install anything?', a: 'Yes. Use Node.js 20+ with npm run dev, or use the local installer and the interview-pro command.' },
       ],
@@ -302,10 +306,10 @@ const MANUAL_COPY: Record<UiLanguage, ManualCopy> = {
     keys: {
       title: 'Chaves de API',
       lead: 'As credenciais de voz e texto seguem caminhos locais separados.',
-      explanation: 'Adicione Gemini e/ou OpenAI em Configuracoes para voz. O broker local salva as chaves no .env.local e as troca por credenciais temporarias. A chave OpenRouter permanece no navegador e e usada pelos agentes de texto.',
+      explanation: 'Configure todos os provedores em Configuracoes -> Chaves de API. A OpenRouter atende todos os modelos de texto, incluindo GPT-5.6 e Claude Opus 5. A chave direta da OpenAI e usada apenas pela voz GPT Realtime; Gemini atende Gemini Live e TTS da candidata. O broker local salva as chaves de voz no .env.local e as troca por credenciais temporarias.',
       cost: 'O app e gratuito, mas os provedores cobram pelo uso. O custo estimado aparece no app para voce acompanhar.',
       stepsTitle: 'Como adicionar chaves',
-      steps: ['Inicie app e broker com npm run dev.', 'Abra Configuracoes -> Chaves de API.', 'Adicione OpenAI e/ou Gemini para voz e OpenRouter para texto.', 'Confira o status configurado antes de comecar.'],
+      steps: ['Inicie app e broker com npm run dev.', 'Abra Configuracoes -> Chaves de API.', 'Adicione OpenRouter para texto e OpenAI e/ou Gemini para voz.', 'Use o botao de salvar para incluir ou substituir chaves de voz; use o icone de lixeira para remover uma.', 'Confira o status configurado antes de comecar.'],
       providersTitle: 'Onde pegar cada chave',
       providers: [
         { name: 'Google Gemini', url: 'aistudio.google.com/apikey', what: 'Gemini Live e TTS do modo espectador pelo broker local.' },
@@ -376,7 +380,8 @@ const MANUAL_COPY: Record<UiLanguage, ManualCopy> = {
       title: 'Ajustes avancados',
       lead: 'Os padroes sao suficientes para comecar, mas voce pode ajustar o pipeline.',
       tiles: [
-        { icon: <Sparkles className="w-4 h-4" />, title: 'Modelos', body: 'Escolha Padrao, Expressivo, Premium, Economico ou Qualidade de voz para o entrevistador e um modelo para cada funcao de texto.' },
+        { icon: <Sparkles className="w-4 h-4" />, title: 'Modelos', body: 'Escolha um preset de voz e um modelo de texto para cada funcao, incluindo GPT-5.6, Claude Opus 5 e aliases Latest via OpenRouter.' },
+        { icon: <Sparkles className="w-4 h-4" />, title: 'Latest ou fixo', body: 'Latest acompanha futuras atualizacoes da familia. Escolha Sol, Terra, Luna, Opus 5 ou Sonnet 5 quando precisar de ID estavel e comportamento previsivel.' },
         { icon: <MessageSquareText className="w-4 h-4" />, title: 'Prompt do entrevistador', body: 'Adicione instrucoes rapidas ou edite o template completo do entrevistador.' },
         { icon: <Receipt className="w-4 h-4" />, title: 'Custos', body: 'Ajuste a cotacao USD para BRL usada nos custos estimados.' },
       ],
@@ -397,6 +402,9 @@ const MANUAL_COPY: Record<UiLanguage, ManualCopy> = {
       faqs: [
         { q: 'Nao ouco o entrevistador.', a: 'Confira permissao de microfone, volume de saida e o status do broker local.' },
         { q: 'O app diz que falta uma chave de voz.', a: 'Abra Configuracoes -> Chaves de API e adicione a chave do provedor de voz selecionado.' },
+        { q: 'Qual chave libera GPT-5.6 e Claude Opus 5?', a: 'A chave OpenRouter. Neste app, a chave direta da OpenAI serve apenas para a voz GPT Realtime do entrevistador.' },
+        { q: 'Posso substituir ou remover uma chave de voz salva?', a: 'Sim. Digite um novo valor e salve para substituir, ou use o icone de lixeira ao lado do provedor configurado para remover.' },
+        { q: 'Devo escolher Latest ou um modelo fixo?', a: 'Use Latest para receber atualizacoes automaticas da familia. Use uma versao nomeada quando reproducibilidade e comportamento estavel forem mais importantes.' },
         { q: 'Posso colar qualquer CV ou vaga?', a: 'Evite material confidencial, segredos comerciais e dados pessoais sensiveis, pois os provedores processam os dados da sessao.' },
         { q: 'Preciso instalar algo?', a: 'Sim. Use Node.js 20+ com npm run dev ou o instalador local com o comando interview-pro.' },
       ],

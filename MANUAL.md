@@ -44,6 +44,12 @@ Open **Settings -> Models** and select one of the voice presets:
 Preview badges identify models that are not generally available. Cost and
 transport metadata appear below each voice model.
 
+Text roles use OpenRouter and now include the GPT-5.6 family (Sol, Terra, and
+Luna), Claude Opus 5 and Opus 5 Fast, Claude Sonnet 5, and `Latest` aliases for
+the main GPT and Opus families. Choose a fixed model when reproducibility
+matters, or a `Latest` alias when you prefer automatic upgrades. Existing
+GPT-5.5, Opus 4.8, Gemini, Fable, and DeepSeek choices remain available.
+
 ## 4. Prepare An Interview
 
 Paste the complete job description and optionally your resume. Select:

@@ -53,7 +53,7 @@ async function readError(res: Response): Promise<string> {
 interface CompletionBody {
   model: string
   messages: Array<{ role: string; content: string }>
-  max_completion_tokens: number
+  max_tokens: number
   response_format?: { type: 'json_object' }
 }
 
@@ -91,7 +91,7 @@ export async function chatJson(p: ChatParams): Promise<ChatResult> {
       { role: 'system', content: p.system },
       { role: 'user', content: p.user },
     ],
-    max_completion_tokens: p.maxTokens ?? 20000,
+    max_tokens: p.maxTokens ?? 20000,
     response_format: { type: 'json_object' },
   })
 }
@@ -101,6 +101,6 @@ export async function chatText(p: ChatTextParams): Promise<ChatResult> {
   return completions(p.ref, p.keys, {
     model: p.ref.model,
     messages: [{ role: 'system', content: p.system }, ...p.messages],
-    max_completion_tokens: p.maxTokens ?? 2000,
+    max_tokens: p.maxTokens ?? 2000,
   })
 }

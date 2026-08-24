@@ -25,6 +25,22 @@ The app supports all 30 Gemini Live voices and the current OpenAI Realtime voice
 set. `Kore` and `marin` are the provider defaults. The deprecated
 `gpt-realtime` preference is migrated automatically to `gpt-realtime-2.1`.
 
+## Text Models
+
+Text agents run through OpenRouter. The catalog includes moving `Latest`
+aliases plus fixed releases so users can choose automatic upgrades or stable
+model IDs:
+
+| Family | Available choices | Typical use |
+| --- | --- | --- |
+| Claude Sonnet | Sonnet Latest, Sonnet 5, Sonnet 4.6 | Planning and low-latency AI candidate turns |
+| Claude Opus | Opus Latest, Opus 5, Opus 5 Fast, Opus 4.8 | Demanding analysis and high-quality candidate answers |
+| OpenAI GPT | GPT Latest, GPT-5.6 Sol, Terra, Luna, GPT-5.5 | Flagship, balanced, and economy text workloads |
+| Other | Gemini, Claude Fable, DeepSeek, OpenRouter Auto | Existing defaults and cost-sensitive alternatives |
+
+Prices shown in Settings are the current per-million-token OpenRouter rates.
+Long prompts may be subject to provider-specific pricing tiers.
+
 ## Run Locally
 
 Prerequisite: Node.js 20 or newer.
