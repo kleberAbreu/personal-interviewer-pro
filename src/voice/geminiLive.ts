@@ -24,6 +24,75 @@ const GEMINI_THINKING_LEVEL: Record<VoiceReasoningMode, ThinkingLevel> = {
   deep: ThinkingLevel.MEDIUM,
 }
 
+export class GeminiPlaybackMicGuard {
+  private userMuted = false
+  private paused = false
+  private playbackBlockingMic = false
+  private releaseTimer: ReturnType<typeof setTimeout> | null = null
+  private readonly setMicMuted: (muted: boolean) => void
+  private readonly remainingSeconds: () => number
+
+  constructor(
+    setMicMuted: (muted: boolean) => void,
+    remainingSeconds: () => number,
+  ) {
+    this.setMicMuted = setMicMuted
+    this.remainingSeconds = remainingSeconds
+  }
+
+  private sync(): void {
+    this.setMicMuted(this.userMuted || this.paused || this.playbackBlockingMic)
+  }
+
+  private clearReleaseTimer(): void {
+    if (this.releaseTimer !== null) clearTimeout(this.releaseTimer)
+    this.releaseTimer = null
+  }
+
+  blockBeforeQueueing(): void {
+    this.playbackBlockingMic = true
+    this.sync()
+  }
+
+  releaseAfterQueueDrains(): void {
+    this.clearReleaseTimer()
+    const delayMs = Math.max(0, (this.remainingSeconds() + 0.15) * 1000)
+    this.releaseTimer = setTimeout(() => {
+      this.releaseTimer = null
+      this.playbackBlockingMic = false
+      this.sync()
+    }, delayMs)
+  }
+
+  releaseAfterInterruption(): void {
+    this.clearReleaseTimer()
+    this.playbackBlockingMic = false
+    this.sync()
+  }
+
+  setUserMuted(muted: boolean): void {
+    this.userMuted = muted
+    this.sync()
+  }
+
+  setPaused(paused: boolean): void {
+    this.paused = paused
+    if (paused) {
+      this.clearReleaseTimer()
+    } else if (this.remainingSeconds() > 0) {
+      this.playbackBlockingMic = true
+      this.releaseAfterQueueDrains()
+    } else {
+      this.playbackBlockingMic = false
+    }
+    this.sync()
+  }
+
+  close(): void {
+    this.clearReleaseTimer()
+  }
+}
+
 function modalityTokens(details: UsageMetadata['promptTokensDetails'], modality: string): number {
   return details?.filter((item) => item.modality === modality).reduce((sum, item) => sum + (item.tokenCount ?? 0), 0) ?? 0
 }
@@ -88,6 +157,10 @@ export async function startGeminiLive(
   let fallbackInputTokens = 0
   let fallbackOutputTokens = 0
   let turnHadUsage = false
+  const playbackMicGuard = new GeminiPlaybackMicGuard(
+    (muted) => { mic.muted = muted },
+    () => player.remainingSeconds(),
+  )
 
   const flushTranscripts = () => {
     if (pendingInterviewer.trim()) cb.onTranscript('interviewer', pendingInterviewer.trim())
@@ -208,7 +281,12 @@ export async function startGeminiLive(
           for (const encodedAudio of parsed.audioChunks) {
             const bytes = b64Decode(encodedAudio)
             fallbackOutputTokens += (bytes.length / 2 / 24000) * 25
+            // Gemini playback is client-managed PCM. Prevent the speaker output
+            // from re-entering the microphone and falsely interrupting the next
+            // response; release the input as soon as the playback queue drains.
+            playbackMicGuard.blockBeforeQueueing()
             player.playPcm16(bytes)
+            playbackMicGuard.releaseAfterQueueDrains()
             cb.onAudioChunk?.(bytes)
           }
           pendingInterviewer += parsed.interviewerTranscript
@@ -217,7 +295,10 @@ export async function startGeminiLive(
             turnHadUsage = true
             cb.onUsage(parsed.usage)
           }
-          if (parsed.interrupted) player.interrupt()
+          if (parsed.interrupted) {
+            player.interrupt()
+            playbackMicGuard.releaseAfterInterruption()
+          }
           if (parsed.turnComplete) {
             flushTranscripts()
             flushFallbackUsage()
@@ -238,6 +319,7 @@ export async function startGeminiLive(
             suppressNextClose = false
             return
           }
+          playbackMicGuard.close()
           mic.stop()
           session = null
           if (!closed) {
@@ -261,11 +343,16 @@ export async function startGeminiLive(
   await connectSession()
 
   return {
-    setMuted: (muted) => { mic.muted = muted },
-    setPaused: (paused) => {
-      mic.muted = paused
-      if (paused) player.pause()
-      else player.resume()
+    setMuted: (muted) => {
+      playbackMicGuard.setUserMuted(muted)
+    },
+    setPaused: (nextPaused) => {
+      if (nextPaused) {
+        player.pause()
+      } else {
+        player.resume()
+      }
+      playbackMicGuard.setPaused(nextPaused)
     },
     sendText: (text) => {
       session?.sendRealtimeInput({ text })
@@ -278,6 +365,7 @@ export async function startGeminiLive(
     },
     stop: () => {
       closed = true
+      playbackMicGuard.close()
       flushTranscripts()
       flushFallbackUsage()
       mic.stop()
