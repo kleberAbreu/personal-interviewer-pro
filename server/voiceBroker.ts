@@ -160,6 +160,23 @@ export function validateGeminiTtsRequest(value: unknown): { model: string; voice
   return { model: body.model, voiceName: body.voiceName, text: body.text.trim() }
 }
 
+export function buildGeminiAuthTokenRequest(
+  model: string,
+  durationMinutes: number,
+  now = Date.now(),
+) {
+  return {
+    uses: 1,
+    expireTime: new Date(now + (durationMinutes + 10) * 60_000).toISOString(),
+    newSessionExpireTime: new Date(now + 60_000).toISOString(),
+    // The current AuthToken schema replaced liveConnectConstraints with a
+    // BidiGenerateContentSetup plus a field mask. Lock only the model so the
+    // browser can still supply voice, instructions, transcripts, and tools.
+    fieldMask: 'model',
+    bidiGenerateContentSetup: { model: `models/${model}` },
+  }
+}
+
 function sendJson(response: ServerResponse, status: number, value: unknown): void {
   response.writeHead(status, {
     'Cache-Control': 'no-store',
@@ -223,27 +240,20 @@ async function createOpenAiSecret(env: BrokerEnvironment, value: unknown): Promi
 async function createGeminiToken(env: BrokerEnvironment, value: unknown): Promise<{ token: string; expiresAt: string }> {
   if (!env.GEMINI_API_KEY) throw new Error('Gemini voice is not configured in .env.local.')
   const { model, durationMinutes } = validateGeminiRequest(value)
-  const now = Date.now()
-  const expireTime = new Date(now + (durationMinutes + 10) * 60_000).toISOString()
-  const newSessionExpireTime = new Date(now + 60_000).toISOString()
+  const tokenRequest = buildGeminiAuthTokenRequest(model, durationMinutes)
   const providerResponse = await fetch('https://generativelanguage.googleapis.com/v1beta/auth_tokens', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'x-goog-api-key': env.GEMINI_API_KEY,
     },
-    body: JSON.stringify({
-      uses: 1,
-      expireTime,
-      newSessionExpireTime,
-      liveConnectConstraints: { model: `models/${model}` },
-    }),
+    body: JSON.stringify(tokenRequest),
   })
   const body = await providerResponse.json().catch(() => ({})) as { name?: string; expireTime?: string }
   if (!providerResponse.ok || !body.name) {
     throw new Error('Gemini could not create an ephemeral voice credential.')
   }
-  return { token: body.name, expiresAt: body.expireTime ?? expireTime }
+  return { token: body.name, expiresAt: body.expireTime ?? tokenRequest.expireTime }
 }
 
 async function createGeminiSpeech(env: BrokerEnvironment, value: unknown): Promise<{ audio: string }> {

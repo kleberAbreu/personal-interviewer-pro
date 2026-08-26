@@ -62,6 +62,7 @@ describe('OpenAI WebRTC adapter', () => {
       srcObject: unknown = null
       play = vi.fn(async () => {})
       pause = vi.fn()
+      setAttribute() {}
       constructor() { audioInstances.push(this) }
     }
     class MockAudioContext {
@@ -121,6 +122,8 @@ describe('OpenAI WebRTC adapter', () => {
 
     channel.emit({ type: 'input_audio_buffer.speech_started' })
     expect(audio.muted).toBe(true)
+    channel.emit({ type: 'response.created' })
+    expect(audio.muted).toBe(false)
     channel.emit({ type: 'response.output_audio.delta', delta: 'audio' })
     expect(audio.muted).toBe(false)
     channel.emit({

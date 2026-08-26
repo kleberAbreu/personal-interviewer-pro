@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
   createVoiceBroker,
+  buildGeminiAuthTokenRequest,
   validateGeminiRequest,
   validateGeminiTtsRequest,
   validateOpenAiRequest,
@@ -17,6 +18,18 @@ afterEach(async () => {
 })
 
 describe('voice broker validation', () => {
+  it('uses the current Gemini AuthToken schema while locking only the Live model', () => {
+    const request = buildGeminiAuthTokenRequest('gemini-3.1-flash-live-preview', 30, 0)
+    expect(request).toMatchObject({
+      uses: 1,
+      fieldMask: 'model',
+      bidiGenerateContentSetup: { model: 'models/gemini-3.1-flash-live-preview' },
+    })
+    expect(request).not.toHaveProperty('liveConnectConstraints')
+    expect(Date.parse(request.newSessionExpireTime)).toBe(60_000)
+    expect(Date.parse(request.expireTime)).toBe(40 * 60_000)
+  })
+
   it('accepts supported model and voice combinations', () => {
     expect(validateOpenAiRequest({ model: 'gpt-realtime-2.1', voice: 'marin' })).toEqual({
       model: 'gpt-realtime-2.1', voice: 'marin',

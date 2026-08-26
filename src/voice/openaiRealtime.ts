@@ -81,6 +81,7 @@ export async function startOpenAiRealtime(
   const events = peer.createDataChannel('oai-events')
   const remoteAudio = new Audio()
   remoteAudio.autoplay = true
+  remoteAudio.setAttribute('playsinline', '')
   let closed = false
   let opened = false
   let endRequested = false
@@ -90,11 +91,21 @@ export async function startOpenAiRealtime(
   let responseStartedAt = lastResponseAt
   const stopMeter = stream ? createAudioMeter(stream, cb.onAudioLevel) : () => {}
 
+  const playRemoteAudio = () => {
+    remoteAudio.muted = paused
+    if (closed || paused || !remoteAudio.srcObject) return
+    void remoteAudio.play().catch((error: unknown) => {
+      if (!closed && error instanceof DOMException && error.name === 'NotAllowedError') {
+        cb.onError('The browser blocked OpenAI audio playback. Allow audio for this site and try again.')
+      }
+    })
+  }
+
   if (track && stream) peer.addTrack(track, stream)
   else peer.addTransceiver('audio', { direction: 'recvonly' })
   peer.ontrack = (event) => {
     remoteAudio.srcObject = event.streams[0]
-    void remoteAudio.play().catch(() => {})
+    playRemoteAudio()
   }
 
   const send = (value: unknown) => {
@@ -145,7 +156,13 @@ export async function startOpenAiRealtime(
     }
     const type = String(event.type ?? '')
 
-    if (type === 'response.created') responseStartedAt = performance.now()
+    if (type === 'response.created') {
+      responseStartedAt = performance.now()
+      // WebRTC carries audio on the remote media track. It does not guarantee
+      // granular audio-delta events on the data channel, so response.created
+      // is the reliable point to undo the local barge-in mute.
+      playRemoteAudio()
+    }
 
     if (type === 'response.output_audio_transcript.done' || type === 'response.audio_transcript.done') {
       const text = String(event.transcript ?? '').trim()
@@ -166,7 +183,7 @@ export async function startOpenAiRealtime(
       type === 'response.audio.started' ||
       type === 'response.audio.delta'
     ) {
-      remoteAudio.muted = paused
+      playRemoteAudio()
     }
 
     if (type === 'response.function_call_arguments.done' && event.name === 'end_interview' && !endRequested) {
@@ -248,7 +265,7 @@ export async function startOpenAiRealtime(
       if (track) track.enabled = !muted && !paused
       remoteAudio.muted = paused
       if (paused) remoteAudio.pause()
-      else void remoteAudio.play().catch(() => {})
+      else playRemoteAudio()
     },
     sendText: (value) => {
       send({
