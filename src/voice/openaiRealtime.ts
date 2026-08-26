@@ -126,7 +126,11 @@ export async function startOpenAiRealtime(
           : {}),
         audio: {
           input: {
-            turn_detection: { type: 'semantic_vad' },
+            turn_detection: {
+              type: 'semantic_vad',
+              create_response: true,
+              interrupt_response: true,
+            },
             transcription: { model: 'gpt-4o-transcribe' },
           },
           output: { voice: opts.voiceName },
@@ -174,10 +178,12 @@ export async function startOpenAiRealtime(
       if (text) cb.onTranscript('candidate', text)
     }
 
-    if (type === 'input_audio_buffer.speech_started') {
-      remoteAudio.muted = true
-    }
+    // Do not mute the remote track on speech_started. Realtime already handles
+    // interruption server-side, and a late/noisy VAD event (for example, from
+    // speaker echo) could otherwise silence the next response while its text
+    // transcript continues to arrive.
     if (
+      type === 'output_audio_buffer.started' ||
       type === 'response.output_audio.started' ||
       type === 'response.output_audio.delta' ||
       type === 'response.audio.started' ||

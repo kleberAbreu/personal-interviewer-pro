@@ -111,6 +111,11 @@ describe('OpenAI WebRTC adapter', () => {
     const update = channel.sent.map((value) => JSON.parse(value)).find((event) => event.type === 'session.update')
     expect(update.session.reasoning.effort).toBe('low')
     expect(update.session.audio.input.transcription.model).toBe('gpt-4o-transcribe')
+    expect(update.session.audio.input.turn_detection).toEqual({
+      type: 'semantic_vad',
+      create_response: true,
+      interrupt_response: true,
+    })
 
     session.setMuted(true)
     expect(track.enabled).toBe(false)
@@ -121,8 +126,12 @@ describe('OpenAI WebRTC adapter', () => {
     expect(track.enabled).toBe(true)
 
     channel.emit({ type: 'input_audio_buffer.speech_started' })
-    expect(audio.muted).toBe(true)
+    expect(audio.muted).toBe(false)
     channel.emit({ type: 'response.created' })
+    expect(audio.muted).toBe(false)
+    channel.emit({ type: 'output_audio_buffer.started' })
+    expect(audio.muted).toBe(false)
+    channel.emit({ type: 'input_audio_buffer.speech_started' })
     expect(audio.muted).toBe(false)
     channel.emit({ type: 'response.output_audio.delta', delta: 'audio' })
     expect(audio.muted).toBe(false)
