@@ -112,7 +112,9 @@ describe('OpenAI WebRTC adapter', () => {
     expect(update.session.reasoning.effort).toBe('low')
     expect(update.session.audio.input.transcription.model).toBe('gpt-transcribe')
     expect(update.session.audio.input.turn_detection).toEqual({
-      type: 'semantic_vad',
+      type: 'server_vad',
+      threshold: 0.5,
+      silence_duration_ms: 700,
       create_response: true,
       interrupt_response: true,
     })

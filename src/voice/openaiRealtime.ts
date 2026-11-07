@@ -127,7 +127,9 @@ export async function startOpenAiRealtime(
         audio: {
           input: {
             turn_detection: {
-              type: 'semantic_vad',
+              type: 'server_vad',
+              threshold: 0.5,
+              silence_duration_ms: 700,
               create_response: true,
               interrupt_response: true,
             },
