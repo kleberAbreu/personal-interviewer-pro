@@ -137,5 +137,13 @@ local keys:
 RUN_VOICE_E2E=1 npm test
 ```
 
+For the longer browser smoke check, start `npm run dev`, open localhost:5173
+with Playwright CLI, then pass `scripts/check-voice-browser.js` to its `run-code`
+command. Inspect `window.voiceSmoke`: both providers must finish five turns
+without errors, and Gemini must continue for over ten minutes. This uses live,
+billed provider sessions. Gemini audio bytes are recorded; OpenAI WebRTC audio
+must additionally be checked in inbound RTP stats. The smoke uses typed candidate
+input; microphone/echo and output-device checks remain separate acceptance tests.
+
 See [MANUAL.md](MANUAL.md) for the full English user guide and
 [SECURITY.md](SECURITY.md) for private vulnerability reporting.
