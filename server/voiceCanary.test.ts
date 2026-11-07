@@ -24,7 +24,7 @@ describe.skipIf(!runCanaries || !process.env.OPENAI_API_KEY)('OpenAI voice crede
 })
 
 describe.skipIf(!runCanaries || !process.env.GEMINI_API_KEY)('Gemini voice credential canaries', () => {
-  it.each(['gemini-3.1-flash-live-preview', 'gemini-2.5-flash-native-audio-preview-12-2025'])('mints a constrained token for %s', async (model) => {
+  it.each(['gemini-3.8-live'])('mints a constrained token for %s', async (model) => {
     const response = await fetch('https://generativelanguage.googleapis.com/v1beta/auth_tokens', {
       method: 'POST',
       headers: { 'x-goog-api-key': process.env.GEMINI_API_KEY!, 'Content-Type': 'application/json' },

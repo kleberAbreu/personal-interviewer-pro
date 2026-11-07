@@ -11,7 +11,7 @@ describe('OpenRouter text model compatibility', () => {
     'openai/gpt-5.6-terra',
     'openai/gpt-5.6-luna',
     'anthropic/claude-opus-5',
-    'anthropic/claude-opus-5-fast',
+    'anthropic/claude-opus-5',
     'anthropic/claude-sonnet-5',
   ])('sends %s through the shared structured-output path', async (model) => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({

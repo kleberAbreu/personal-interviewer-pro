@@ -19,11 +19,11 @@ afterEach(async () => {
 
 describe('voice broker validation', () => {
   it('uses the current Gemini AuthToken schema while locking only the Live model', () => {
-    const request = buildGeminiAuthTokenRequest('gemini-3.1-flash-live-preview', 30, 0)
+    const request = buildGeminiAuthTokenRequest('gemini-3.8-live', 30, 0)
     expect(request).toMatchObject({
       uses: 1,
       fieldMask: 'model',
-      bidiGenerateContentSetup: { model: 'models/gemini-3.1-flash-live-preview' },
+      bidiGenerateContentSetup: { model: 'models/gemini-3.8-live' },
     })
     expect(request).not.toHaveProperty('liveConnectConstraints')
     expect(Date.parse(request.newSessionExpireTime)).toBe(60_000)
@@ -34,21 +34,21 @@ describe('voice broker validation', () => {
     expect(validateOpenAiRequest({ model: 'gpt-realtime-2.1', voice: 'marin' })).toEqual({
       model: 'gpt-realtime-2.1', voice: 'marin',
     })
-    expect(validateGeminiRequest({ model: 'gemini-3.1-flash-live-preview', durationMinutes: 30 })).toEqual({
-      model: 'gemini-3.1-flash-live-preview', durationMinutes: 30,
+    expect(validateGeminiRequest({ model: 'gemini-3.8-live', durationMinutes: 30 })).toEqual({
+      model: 'gemini-3.8-live', durationMinutes: 30,
     })
-    expect(validateGeminiTtsRequest({ model: 'gemini-2.5-flash-tts', voiceName: 'Puck', text: 'Hello' })).toEqual({
-      model: 'gemini-2.5-flash-tts', voiceName: 'Puck', text: 'Hello',
+    expect(validateGeminiTtsRequest({ model: 'gemini-3.8-flash-lite-tts', voiceName: 'Puck', text: 'Hello' })).toEqual({
+      model: 'gemini-3.8-flash-lite-tts', voiceName: 'Puck', text: 'Hello',
     })
   })
 
   it('rejects unknown models, incompatible voices, and invalid durations', () => {
     expect(() => validateOpenAiRequest({ model: 'gpt-realtime', voice: 'marin' })).toThrow('Unsupported')
     expect(() => validateOpenAiRequest({ model: 'gpt-realtime-2.1', voice: 'Kore' })).toThrow('Unsupported voice')
-    expect(() => validateGeminiRequest({ model: 'gemini-3.1-flash-live-preview', durationMinutes: 120 })).toThrow('duration')
+    expect(() => validateGeminiRequest({ model: 'gemini-3.8-live', durationMinutes: 120 })).toThrow('duration')
     expect(() => validateGeminiTtsRequest({ model: 'unknown', voiceName: 'Puck', text: 'Hello' })).toThrow('TTS model')
-    expect(() => validateGeminiTtsRequest({ model: 'gemini-2.5-flash-tts', voiceName: 'unknown', text: 'Hello' })).toThrow('TTS voice')
-    expect(() => validateGeminiTtsRequest({ model: 'gemini-2.5-flash-tts', voiceName: 'Puck', text: '' })).toThrow('text')
+    expect(() => validateGeminiTtsRequest({ model: 'gemini-3.8-flash-lite-tts', voiceName: 'unknown', text: 'Hello' })).toThrow('TTS voice')
+    expect(() => validateGeminiTtsRequest({ model: 'gemini-3.8-flash-lite-tts', voiceName: 'Puck', text: '' })).toThrow('text')
   })
 
   it('accepts only explicit OpenAI and Gemini credential updates', () => {

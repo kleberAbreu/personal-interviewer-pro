@@ -26,8 +26,8 @@ require_node_20() {
   local major
   major="$(node -p "Number(process.versions.node.split('.')[0])")"
 
-  if [ "$major" -lt 20 ]; then
-    fail "Node.js 20+ is required. Current version: $(node --version)"
+  if ! node -e "const [a,b]=process.versions.node.split('.').map(Number);process.exit(a>22||(a===22&&b>=12)?0:1)"; then
+    fail "Node.js 22.12+ is required. Current version: $(node --version)"
   fi
 }
 

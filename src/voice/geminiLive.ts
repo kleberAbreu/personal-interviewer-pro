@@ -56,6 +56,7 @@ export class GeminiPlaybackMicGuard {
 
   releaseAfterQueueDrains(): void {
     this.clearReleaseTimer()
+    if (this.paused || this.remainingSeconds() > 0.05) return
     const delayMs = Math.max(0, (this.remainingSeconds() + 0.15) * 1000)
     this.releaseTimer = setTimeout(() => {
       this.releaseTimer = null
@@ -161,6 +162,7 @@ export async function startGeminiLive(
     (muted) => { mic.muted = muted },
     () => player.remainingSeconds(),
   )
+  player.onDrained = () => playbackMicGuard.releaseAfterQueueDrains()
 
   const flushTranscripts = () => {
     if (pendingInterviewer.trim()) cb.onTranscript('interviewer', pendingInterviewer.trim())
@@ -300,6 +302,7 @@ export async function startGeminiLive(
             playbackMicGuard.releaseAfterInterruption()
           }
           if (parsed.turnComplete) {
+            console.debug('[voice] Gemini turn complete', { queuedAudioMs: Math.round(player.remainingSeconds() * 1000) })
             flushTranscripts()
             flushFallbackUsage()
             cb.onTurnComplete?.()
@@ -315,6 +318,7 @@ export async function startGeminiLive(
           if (!closed && !reconnecting) cb.onError(event.message || 'Gemini Live connection error.')
         },
         onclose: (event: CloseEvent) => {
+          console.debug('[voice] Gemini connection closed', { code: event.code, reconnecting })
           if (suppressNextClose) {
             suppressNextClose = false
             return

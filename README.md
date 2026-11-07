@@ -15,8 +15,7 @@ the interview and compare its answers with your own practice sessions.
 
 | Preset | Model | Best for | Transport |
 | --- | --- | --- | --- |
-| Default | `gemini-3.1-flash-live-preview` | Adaptive interviews and configurable reasoning | Gemini Live WebSocket |
-| Expressive | `gemini-2.5-flash-native-audio-preview-12-2025` | Optional affective dialog | Gemini Live WebSocket |
+| Default | `gemini-3.8-live` | Low-latency interviews with built-in reasoning | Gemini Live WebSocket |
 | Premium | `gpt-realtime-2.1` | Reasoning, noise, silence, and interruption handling | WebRTC |
 | Economy | `gpt-realtime-2.1-mini` | Lower-cost OpenAI voice with 128k context | WebRTC |
 | Voice quality | `gpt-realtime-1.5` | Natural delivery without configurable reasoning | WebRTC |
@@ -34,16 +33,24 @@ model IDs:
 | Family | Available choices | Typical use |
 | --- | --- | --- |
 | Claude Sonnet | Sonnet Latest, Sonnet 5, Sonnet 4.6 | Planning and low-latency AI candidate turns |
-| Claude Opus | Opus Latest, Opus 5, Opus 5 Fast, Opus 4.8 | Demanding analysis and high-quality candidate answers |
-| OpenAI GPT | GPT Latest, GPT-5.6 Sol, Terra, Luna, GPT-5.5 | Flagship, balanced, and economy text workloads |
+| Claude Opus | Opus Latest, Opus 5, Opus 4.8 | Demanding analysis and high-quality candidate answers |
+| OpenAI GPT | GPT-6.1 Sol, GPT-5.6 Sol, Terra, Luna, GPT-5.5 | Flagship, balanced, and economy text workloads |
 | Other | Gemini, Claude Fable, DeepSeek, OpenRouter Auto | Existing defaults and cost-sensitive alternatives |
 
 Prices shown in Settings are the current per-million-token OpenRouter rates.
 Long prompts may be subject to provider-specific pricing tiers.
 
+Catalog and prices were verified on November 7, 2026. They are estimates,
+not a live billing feed. Gemini 3.8 TTS estimates include the announced
+January 1, 2027 price change. Retired voice preferences migrate automatically.
+
+Gemini uses microphone gating during speaker playback to prevent echo-driven
+interruptions. Wait for the interviewer to finish before answering. Pausing
+preserves the playback queue. OpenAI continues to use native WebRTC turn handling.
+
 ## Run Locally
 
-Prerequisite: Node.js 20 or newer.
+Prerequisite: Node.js 22.12 or newer (`nvm use`).
 
 ```bash
 npm ci
@@ -123,7 +130,7 @@ npm run build
 npm audit --omit=dev
 ```
 
-Provider credential canaries for all five voice models are opt-in and require
+Provider credential canaries for all four voice models are opt-in and require
 local keys:
 
 ```bash

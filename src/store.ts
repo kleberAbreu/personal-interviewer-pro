@@ -49,6 +49,13 @@ export function migrateSettingsState(persisted: unknown, version: number): Parti
   }
   let models = normalizeModels(state.models)
   const uiLanguage = state.uiLanguage ?? 'en-US'
+  if (version < 9) {
+    if (models.interviewer.provider === 'gemini') models = { ...models, interviewer: DEFAULT_MODELS.interviewer }
+    for (const role of Object.keys(models) as AgentRole[]) {
+      if (models[role].model === '~openai/gpt-latest') models[role] = { provider: 'openrouter', model: 'openai/gpt-6.1-sol' }
+      if (models[role].model === 'anthropic/claude-opus-5-fast') models[role] = { provider: 'openrouter', model: 'anthropic/claude-opus-5' }
+    }
+  }
 
   if (version < 5) {
     models = { ...models, interviewer: DEFAULT_MODELS.interviewer }
@@ -77,7 +84,7 @@ export function migrateSettingsState(persisted: unknown, version: number): Parti
     interviewerTemplate,
     candidateEngine: state.candidateEngine ?? DEFAULT_CANDIDATE_ENGINE,
     candidateVoice: state.candidateVoice ?? DEFAULT_CANDIDATE_VOICE,
-    candidateTtsModel: state.candidateTtsModel ?? DEFAULT_CANDIDATE_TTS_MODEL,
+    candidateTtsModel: version < 9 ? DEFAULT_CANDIDATE_TTS_MODEL : state.candidateTtsModel ?? DEFAULT_CANDIDATE_TTS_MODEL,
   }
 }
 
@@ -121,7 +128,7 @@ export const useSettings = create<SettingsState>()(
     }),
     {
       name: 'pip-settings-v1',
-      version: 8,
+      version: 9,
       migrate: migrateSettingsState,
     },
   ),

@@ -95,7 +95,7 @@ export async function startSpectatorSession(
           voiceName: opts.candidateVoice,
           text: result.data,
         })
-        cb.onCandidateCost(ttsCostUsd(seconds))
+        cb.onCandidateCost(ttsCostUsd(seconds, opts.ttsModel))
       } catch (e) {
         // TTS é só para os SEUS ouvidos: se falhar, a entrevista segue sem a voz.
         console.warn('[spectator] TTS falhou; seguindo sem áudio da candidata:', e)

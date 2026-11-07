@@ -6,9 +6,9 @@ import {
 
 describe('voice model catalog', () => {
   it('uses Gemini 3.1 Live as the default and excludes deprecated GPT Realtime', () => {
-    expect(DEFAULT_MODELS.interviewer.model).toBe('gemini-3.1-flash-live-preview')
+    expect(DEFAULT_MODELS.interviewer.model).toBe('gemini-3.8-live')
     expect(CATALOG.some((model) => model.id === 'gpt-realtime')).toBe(false)
-    expect(CATALOG.filter((model) => model.voice)).toHaveLength(5)
+    expect(CATALOG.filter((model) => model.voice)).toHaveLength(4)
   })
 
   it('exposes all Gemini voices and model-specific defaults', () => {
@@ -19,23 +19,22 @@ describe('voice model catalog', () => {
   })
 
   it('gates reasoning and affective dialog by model capability', () => {
-    expect(supportsVoiceReasoning(DEFAULT_MODELS.interviewer)).toBe(true)
+    expect(supportsVoiceReasoning(DEFAULT_MODELS.interviewer)).toBe(false)
     expect(supportsAffectiveDialog(DEFAULT_MODELS.interviewer)).toBe(false)
-    const expressive = { provider: 'gemini' as const, model: 'gemini-2.5-flash-native-audio-preview-12-2025' }
+    const expressive = { provider: 'gemini' as const, model: 'gemini-3.8-live' }
     expect(supportsVoiceReasoning(expressive)).toBe(false)
-    expect(supportsAffectiveDialog(expressive)).toBe(true)
-    expect(modelInfo(expressive)?.preset).toBe('expressive')
+    expect(supportsAffectiveDialog(expressive)).toBe(false)
+    expect(modelInfo(expressive)?.preset).toBe('default')
   })
 
   it('includes the latest OpenAI and Anthropic text families through OpenRouter', () => {
     const expected = [
-      ['~openai/gpt-latest', 2, 10, 1_050_000],
-      ['openai/gpt-5.6-sol', 2, 10, 1_050_000],
+      ['openai/gpt-6.1-sol', 2, 10, 1_050_000],
+      ['openai/gpt-5.6-sol', 4, 20, 1_050_000],
       ['openai/gpt-5.6-terra', 2, 12, 1_050_000],
       ['openai/gpt-5.6-luna', 0.2, 1.2, 1_050_000],
-      ['~anthropic/claude-opus-latest', 5, 25, 1_000_000],
+      ['~anthropic/claude-opus-latest', 4, 20, 1_000_000],
       ['anthropic/claude-opus-5', 5, 25, 1_000_000],
-      ['anthropic/claude-opus-5-fast', 10, 50, 1_000_000],
       ['anthropic/claude-sonnet-5', 2, 10, 1_000_000],
     ] as const
 
@@ -52,7 +51,7 @@ describe('voice model catalog', () => {
     })
     expect(ROLE_SUGGESTIONS.candidate.alternatives).toContainEqual({
       provider: 'openrouter',
-      model: 'anthropic/claude-opus-5-fast',
+      model: 'anthropic/claude-opus-5',
     })
   })
 })

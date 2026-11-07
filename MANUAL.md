@@ -4,7 +4,7 @@ This repository contains source code for local use. It is not a hosted demo.
 
 ## 1. Local Setup
 
-1. Install Node.js 20 or newer.
+1. Install Node.js 22.12 or newer.
 2. Run `npm ci`.
 3. Run `npm run dev` and open the Vite URL.
 4. Open **Settings -> API keys** and add the provider keys you plan to use.
@@ -35,8 +35,7 @@ status and never reads a saved key back from the broker.
 
 Open **Settings -> Models** and select one of the voice presets:
 
-- **Default:** Gemini 3.1 Flash Live, with configurable reasoning.
-- **Expressive:** Gemini 2.5 Native Audio, with optional affective dialog.
+- **Default:** Gemini 3.8 Live, with built-in reasoning.
 - **Premium:** GPT Realtime 2.1 over WebRTC.
 - **Economy:** GPT Realtime 2.1 mini over WebRTC.
 - **Voice quality:** GPT Realtime 1.5 over WebRTC.
@@ -45,7 +44,7 @@ Preview badges identify models that are not generally available. Cost and
 transport metadata appear below each voice model.
 
 Text roles use OpenRouter and now include the GPT-5.6 family (Sol, Terra, and
-Luna), Claude Opus 5 and Opus 5 Fast, Claude Sonnet 5, and `Latest` aliases for
+Luna), Claude Opus 5 and Opus 5, Claude Sonnet 5, and `Latest` aliases for
 the main GPT and Opus families. Choose a fixed model when reproducibility
 matters, or a `Latest` alias when you prefer automatic upgrades. Existing
 GPT-5.5, Opus 4.8, Gemini, Fable, and DeepSeek choices remain available.

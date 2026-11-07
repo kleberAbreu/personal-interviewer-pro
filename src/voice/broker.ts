@@ -24,6 +24,7 @@ async function brokerRequest<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response
   try {
     response = await fetch(path, {
+      signal: AbortSignal.timeout(30000),
       ...init,
       headers: { 'Content-Type': 'application/json', ...init?.headers },
     })

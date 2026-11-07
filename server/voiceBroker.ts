@@ -216,6 +216,7 @@ async function createOpenAiSecret(env: BrokerEnvironment, value: unknown): Promi
   if (!env.OPENAI_API_KEY) throw new Error('OpenAI voice is not configured in .env.local.')
   const { model, voice } = validateOpenAiRequest(value)
   const providerResponse = await fetch('https://api.openai.com/v1/realtime/client_secrets', {
+    signal: AbortSignal.timeout(25000),
     method: 'POST',
     headers: {
       Authorization: `Bearer ${env.OPENAI_API_KEY}`,
@@ -242,6 +243,7 @@ async function createGeminiToken(env: BrokerEnvironment, value: unknown): Promis
   const { model, durationMinutes } = validateGeminiRequest(value)
   const tokenRequest = buildGeminiAuthTokenRequest(model, durationMinutes)
   const providerResponse = await fetch('https://generativelanguage.googleapis.com/v1beta/auth_tokens', {
+    signal: AbortSignal.timeout(25000),
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -256,13 +258,14 @@ async function createGeminiToken(env: BrokerEnvironment, value: unknown): Promis
   return { token: body.name, expiresAt: body.expireTime ?? tokenRequest.expireTime }
 }
 
-async function createGeminiSpeech(env: BrokerEnvironment, value: unknown): Promise<{ audio: string }> {
+async function createGeminiSpeech(env: BrokerEnvironment, value: unknown): Promise<{ audio: string; mimeType: string; sampleRate: number }> {
   if (!env.GEMINI_API_KEY) throw new Error('Gemini voice is not configured in .env.local.')
   const { model, voiceName, text } = validateGeminiTtsRequest(value)
   const providerResponse = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
     {
       method: 'POST',
+      signal: AbortSignal.timeout(60000),
       headers: {
         'Content-Type': 'application/json',
         'x-goog-api-key': env.GEMINI_API_KEY,
@@ -277,11 +280,12 @@ async function createGeminiSpeech(env: BrokerEnvironment, value: unknown): Promi
     },
   )
   const body = await providerResponse.json().catch(() => ({})) as {
-    candidates?: Array<{ content?: { parts?: Array<{ inlineData?: { data?: string } }> } }>
+    candidates?: Array<{ content?: { parts?: Array<{ inlineData?: { data?: string; mimeType?: string } }> } }>
   }
-  const audio = body.candidates?.[0]?.content?.parts?.find((part) => part.inlineData?.data)?.inlineData?.data
-  if (!providerResponse.ok || !audio) throw new Error('Gemini could not synthesize candidate speech.')
-  return { audio }
+  const inline = body.candidates?.[0]?.content?.parts?.find((part) => part.inlineData?.data)?.inlineData
+  if (!providerResponse.ok || !inline?.data) throw new Error('Gemini could not synthesize candidate speech.')
+  const mimeType = inline.mimeType ?? 'audio/pcm;rate=24000'
+  return { audio: inline.data, mimeType, sampleRate: Number(mimeType.match(/rate=(\d+)/)?.[1] ?? 24000) }
 }
 
 export function createVoiceBroker(

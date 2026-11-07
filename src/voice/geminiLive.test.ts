@@ -52,9 +52,11 @@ describe('Gemini playback microphone guard', () => {
     guard.releaseAfterQueueDrains()
 
     expect(muted).toBe(true)
-    vi.advanceTimersByTime(2149)
+    vi.advanceTimersByTime(10000)
     expect(muted).toBe(true)
-    vi.advanceTimersByTime(1)
+    remaining = 0
+    guard.releaseAfterQueueDrains()
+    vi.advanceTimersByTime(150)
     expect(muted).toBe(false)
 
     remaining = 1
@@ -76,6 +78,8 @@ describe('Gemini playback microphone guard', () => {
 
     guard.setUserMuted(true)
     guard.blockBeforeQueueing()
+    guard.releaseAfterQueueDrains()
+    remaining = 0
     guard.releaseAfterQueueDrains()
     vi.advanceTimersByTime(1150)
     expect(muted).toBe(true)

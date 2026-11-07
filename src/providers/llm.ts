@@ -63,6 +63,7 @@ async function completions(ref: ModelRef, keys: ApiKeys, body: CompletionBody): 
   }
 
   const res = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
+    signal: AbortSignal.timeout(120000),
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

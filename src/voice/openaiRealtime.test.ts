@@ -110,7 +110,7 @@ describe('OpenAI WebRTC adapter', () => {
     expect(onOpen).toHaveBeenCalledOnce()
     const update = channel.sent.map((value) => JSON.parse(value)).find((event) => event.type === 'session.update')
     expect(update.session.reasoning.effort).toBe('low')
-    expect(update.session.audio.input.transcription.model).toBe('gpt-4o-transcribe')
+    expect(update.session.audio.input.transcription.model).toBe('gpt-transcribe')
     expect(update.session.audio.input.turn_detection).toEqual({
       type: 'semantic_vad',
       create_response: true,

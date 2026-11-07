@@ -1,4 +1,4 @@
-import { AUDIO_TOKENS_PER_SECOND, modelInfo } from '../config/models'
+import { modelInfo } from '../config/models'
 import type { ModelRef, TokenUsage, VoiceUsage } from '../types'
 
 export function textCostUsd(ref: ModelRef, usage: TokenUsage): number {
@@ -45,13 +45,10 @@ export function voiceCostUsd(ref: ModelRef, usage: VoiceUsage): number {
   )
 }
 
-// Preço estimado do Gemini TTS (saída de áudio) em USD por 1M de tokens de áudio.
-// Estimativa conservadora alinhada ao pricing publicado do Gemini 2.5 Flash TTS.
-export const TTS_AUDIO_OUTPUT_PER_M = 10.0
-
 /** Custo estimado da voz TTS da candidata a partir dos segundos de áudio gerado. */
-export function ttsCostUsd(audioOutSeconds: number): number {
-  return ((audioOutSeconds * AUDIO_TOKENS_PER_SECOND) / 1_000_000) * TTS_AUDIO_OUTPUT_PER_M
+export function ttsCostUsd(audioOutSeconds: number, model = 'gemini-3.8-flash-lite-tts', now = Date.now()): number {
+  const rate = (model === 'gemini-3.8-flash-tts' ? 9 : 6) * (now >= Date.UTC(2027, 0, 1) ? 2 : 1)
+  return ((audioOutSeconds * 25) / 1_000_000) * rate
 }
 
 export function formatBrl(usd: number, usdToBrl: number): string {

@@ -131,7 +131,7 @@ export async function startOpenAiRealtime(
               create_response: true,
               interrupt_response: true,
             },
-            transcription: { model: 'gpt-4o-transcribe' },
+            transcription: { model: 'gpt-transcribe' },
           },
           output: { voice: opts.voiceName },
         },
@@ -234,6 +234,7 @@ export async function startOpenAiRealtime(
     if (!closed) cb.onError('OpenAI Realtime event channel failed.')
   }
   peer.onconnectionstatechange = () => {
+    console.debug('[voice] OpenAI connection state', { state: peer.connectionState })
     if (closed) return
     if (peer.connectionState === 'failed' || peer.connectionState === 'disconnected') {
       cb.onError('OpenAI Realtime connection was interrupted.')

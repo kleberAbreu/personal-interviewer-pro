@@ -74,7 +74,7 @@ export class MicCapture {
     })
     const inRate = this.ctx.sampleRate
     this.source = this.ctx.createMediaStreamSource(this.stream)
-    this.processor = this.ctx.createScriptProcessor(4096, 1, 1)
+    this.processor = this.ctx.createScriptProcessor(1024, 1, 1)
     this.processor.onaudioprocess = (e) => {
       if (this.muted) return
       const input = e.inputBuffer.getChannelData(0)
@@ -104,6 +104,8 @@ export class PcmPlayer {
   private sampleRate: number
   private nextStartTime = 0
   private sources = new Set<AudioBufferSourceNode>()
+  private paused = false
+  onDrained: (() => void) | null = null
   totalPlayedSeconds = 0
 
   constructor(sampleRate: number = 24000) {
@@ -116,7 +118,7 @@ export class PcmPlayer {
   /** Enfileira PCM16 mono (bytes) para reprodução contínua. */
   playPcm16(bytes: Uint8Array): void {
     // Autoplay policy: garante que o contexto esteja rodando antes de tocar.
-    if (this.ctx.state === 'suspended') void this.ctx.resume()
+    if (!this.paused && this.ctx.state === 'suspended') void this.ctx.resume()
     const aligned = bytes.byteOffset % 2 === 0 && bytes.byteLength % 2 === 0
       ? bytes
       : bytes.slice()
@@ -132,16 +134,21 @@ export class PcmPlayer {
     this.nextStartTime = startAt + buffer.duration
     this.totalPlayedSeconds += buffer.duration
     this.sources.add(source)
-    source.onended = () => this.sources.delete(source)
+    source.onended = () => {
+      this.sources.delete(source)
+      if (this.sources.size === 0) this.onDrained?.()
+    }
   }
 
   /** Pausa a reprodução congelando o relógio do contexto (preserva a fila). */
   pause(): void {
+    this.paused = true
     if (this.ctx.state === 'running') void this.ctx.suspend()
   }
 
   /** Retoma a reprodução de onde parou. */
   resume(): void {
+    this.paused = false
     if (this.ctx.state === 'suspended') void this.ctx.resume()
   }
 
@@ -160,6 +167,7 @@ export class PcmPlayer {
   }
 
   close(): void {
+    this.onDrained = null
     this.interrupt()
     void this.ctx.close()
   }
