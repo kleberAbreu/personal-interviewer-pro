@@ -24,6 +24,10 @@ const GEMINI_THINKING_LEVEL: Record<VoiceReasoningMode, ThinkingLevel> = {
   deep: ThinkingLevel.MEDIUM,
 }
 
+export function shouldResumeGeminiClose(code: number, hasHandle: boolean, attempts: number): boolean {
+  return hasHandle && [1006, 1011, 1012, 1013].includes(code) && attempts < 2
+}
+
 export class GeminiPlaybackMicGuard {
   private userMuted = false
   private paused = false
@@ -158,6 +162,8 @@ export async function startGeminiLive(
   let fallbackInputTokens = 0
   let fallbackOutputTokens = 0
   let turnHadUsage = false
+  let resumeAttempts = 0
+  let reconnectTimer: ReturnType<typeof setTimeout> | null = null
   const playbackMicGuard = new GeminiPlaybackMicGuard(
     (muted) => { mic.muted = muted },
     () => player.remainingSeconds(),
@@ -302,6 +308,7 @@ export async function startGeminiLive(
             playbackMicGuard.releaseAfterInterruption()
           }
           if (parsed.turnComplete) {
+            resumeAttempts = 0
             console.debug('[voice] Gemini turn complete', { queuedAudioMs: Math.round(player.remainingSeconds() * 1000) })
             flushTranscripts()
             flushFallbackUsage()
@@ -321,6 +328,22 @@ export async function startGeminiLive(
           console.debug('[voice] Gemini connection closed', { code: event.code, reconnecting })
           if (suppressNextClose) {
             suppressNextClose = false
+            return
+          }
+          if (!closed && !endRequested && shouldResumeGeminiClose(event.code, Boolean(resumeHandle), resumeAttempts)) {
+            resumeAttempts++
+            reconnecting = true
+            session = null
+            reconnectTimer = setTimeout(() => {
+              reconnectTimer = null
+              if (closed) return
+              void connectSession().catch(() => {
+                reconnecting = false
+                mic.stop()
+                cb.onError('Gemini could not resume the interrupted session. Please start a new interview.')
+                cb.onClose()
+              })
+            }, resumeAttempts * 500)
             return
           }
           playbackMicGuard.close()
@@ -369,6 +392,7 @@ export async function startGeminiLive(
     },
     stop: () => {
       closed = true
+      if (reconnectTimer !== null) clearTimeout(reconnectTimer)
       playbackMicGuard.close()
       flushTranscripts()
       flushFallbackUsage()

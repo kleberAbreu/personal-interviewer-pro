@@ -1,8 +1,16 @@
 import type { LiveServerMessage } from '@google/genai/web'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { GeminiPlaybackMicGuard, parseGeminiServerMessage } from './geminiLive'
+import { GeminiPlaybackMicGuard, parseGeminiServerMessage, shouldResumeGeminiClose } from './geminiLive'
 
 describe('Gemini Live event parser', () => {
+  it('retries resumable transient closes with a strict retry bound', () => {
+    expect(shouldResumeGeminiClose(1011, true, 0)).toBe(true)
+    expect(shouldResumeGeminiClose(1006, true, 1)).toBe(true)
+    expect(shouldResumeGeminiClose(1011, true, 2)).toBe(false)
+    expect(shouldResumeGeminiClose(1011, false, 0)).toBe(false)
+    expect(shouldResumeGeminiClose(1000, true, 0)).toBe(false)
+    expect(shouldResumeGeminiClose(1008, true, 0)).toBe(false)
+  })
   it('processes every audio part in a single model turn', () => {
     const parsed = parseGeminiServerMessage({
       serverContent: {
